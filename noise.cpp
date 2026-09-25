@@ -1,4 +1,5 @@
 #include <bits/stdc++.h>
+#include <string>
 using namespace std;
 using rng_t = std::mt19937_64;
 
@@ -7,6 +8,7 @@ struct MenuItem {
     string name;
     double price;
     double weight; // sampling weight
+    string category;
 };
 
 static string trim_quotes(const string &s) {
@@ -32,6 +34,66 @@ static vector<string> split_csv_line(const string &line) {
     return out;
 }
 
+string classify_item(const string &original_name) {
+    string name = original_name;
+
+    for (char &c : name)
+        c = toupper((unsigned char)c);
+
+    // Individual Cub Meal nutrition portions are not separate POS items
+    if (name.find("- CUB MEAL") != string::npos)
+        return "EXCLUDE";
+
+    // Full Cub Meal products
+    if (name.find("CUB MEAL (") != string::npos)
+        return "CUB_MEAL";
+
+    // Sides
+    if (name == "CHOW FUN" ||
+        name == "CHOW MEIN" ||
+        name == "FRIED RICE" ||
+        name == "SUPER GREENS" ||
+        name == "WHITE STEAMED RICE")
+        return "SIDE";
+
+    // Appetizers
+    if (name.find("EGG ROLL") != string::npos ||
+        name.find("POTSTICKER (") != string::npos ||
+        name.find("CREAM CHEESE RANGOON") != string::npos ||
+        name.find("SPRING ROLL") != string::npos)
+        return "APPETIZER";
+
+    // Extras / sauces / desserts
+    if (name.find("SAUCE") != string::npos ||
+        name == "HOT MUSTARD" ||
+        name == "FORTUNE COOKIE" ||
+        name == "TREE TOP APPLE CRISPS" ||
+        name == "APPLE PIE ROLL")
+        return "EXTRA";
+
+    // Soup
+    if (name.find("SOUP") != string::npos)
+        return "SIDE";
+
+    // Drinks
+    if (name.find("COCA-COLA") != string::npos ||
+        name.find("COKE") != string::npos ||
+        name.find("SPRITE") != string::npos ||
+        name.find("FANTA") != string::npos ||
+        name.find("DR PEPPER") != string::npos ||
+        name.find("ROOT BEER") != string::npos ||
+        name.find("TEA") != string::npos ||
+        name.find("LEMONADE") != string::npos ||
+        name.find("POWERADE") != string::npos ||
+        name.find("GINGER ALE") != string::npos ||
+        name.find("VITAMINWATER") != string::npos ||
+        name.find("REFRESHER") != string::npos)
+        return "DRINK";
+
+    // Everything remaining in this dataset is an entree
+    return "ENTREE";
+}
+
 vector<MenuItem> load_menu(const string &path) {
     ifstream f(path);
     if (!f) {
@@ -48,6 +110,7 @@ vector<MenuItem> load_menu(const string &path) {
         if (c.find("price") != string::npos) price_col = (int)i;
     }
     vector<MenuItem> menu;
+
     string line;
     int id = 1;
     while (getline(f, line)) {
@@ -58,11 +121,19 @@ vector<MenuItem> load_menu(const string &path) {
         if (price_col >= 0 && (size_t)price_col < fields.size()) {
             try { price = stod(fields[price_col]); } catch (...) { price = 5.0; }
         }
-        MenuItem it; it.id = id++; it.name = name; it.price = price;
-        // weight: cheaper items typically ordered more; ensure positive
+        MenuItem it;
+        it.id = id++;
+        it.name = name;
+        it.price = price;
+        it.category = classify_item(name);
+
+        if (it.category == "EXCLUDE")
+            continue;
         it.weight = max(0.1, 50.0 - it.price * 2.0);
+
         menu.push_back(it);
-    }
+        }
+        
     if (menu.empty()) {
         cerr << "No menu items parsed\n"; exit(1);
     }
@@ -91,6 +162,15 @@ string sql_escape(const string &s) {
     return o;
 }
 
+int sample_category(rng_t &rng, const vector<int> &items) {
+    if (items.empty())
+        return -1;
+
+    return items[
+        uniform_int_distribution<int>(0, items.size() - 1)(rng)
+    ];
+}
+
 int main(int argc, char** argv) {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
@@ -109,6 +189,28 @@ int main(int argc, char** argv) {
 
     rng_t rng(seed);
     auto menu = load_menu(menu_path);
+
+    vector<int> entrees;
+    vector<int> sides;
+    vector<int> drinks;
+    vector<int> appetizers;
+    vector<int> extras;
+    vector<int> cubMeals;
+
+    for (size_t i = 0; i < menu.size(); ++i) {
+        if (menu[i].category == "ENTREE")
+            entrees.push_back(i);
+        else if (menu[i].category == "SIDE")
+            sides.push_back(i);
+        else if (menu[i].category == "DRINK")
+            drinks.push_back(i);
+        else if (menu[i].category == "APPETIZER")
+            appetizers.push_back(i);
+        else if (menu[i].category == "EXTRA")
+            extras.push_back(i);
+        else if (menu[i].category == "CUB_MEAL")
+            cubMeals.push_back(i);
+    }
 
     // normalize weights vector for sampling
     vector<double> weights;
@@ -145,7 +247,7 @@ int main(int argc, char** argv) {
     tm_now.tm_mday -= 1;
     mktime(&tm_now); // normalize
 
-    cout << "BEGIN;\n";
+    //cout << "BEGIN;\n";
 
     // For each simulated day
     for (int d = 0; d < days; ++d) {
@@ -161,7 +263,11 @@ int main(int argc, char** argv) {
 
         // per-minute loop
         vector<string> orders_batch;
-        orders_batch.reserve(10000);
+        vector<string> order_items_batch;
+
+        orders_batch.reserve(500);
+        order_items_batch.reserve(1000);
+
         for (int h = open_h; h < close_h; ++h) {
             for (int minute = 0; minute < 60; ++minute) {
                 // advance OU with dt=1 minute (t in minutes)
@@ -180,27 +286,86 @@ int main(int argc, char** argv) {
                     int sec = uniform_int_distribution<int>(0,59)(rng);
                     // create order items: number of distinct items ~ 1 + Poisson(0.5)
                     int k = 1 + poisson_distribution<int>(0.5)(rng);
-                    // sample without replacement if possible
+                    // sample with replacement if possible
                     vector<int> chosen_idx;
-                    chosen_idx.reserve(k);
-                    // use discrete distribution on weights
-                    for (int ii = 0; ii < k; ++ii) {
-                        int idx = sample_index(rng, weights);
-                        chosen_idx.push_back(idx);
+
+                    // 8% chance of a Cub Meal
+                    bool cub_order =
+                        uniform_int_distribution<int>(1, 100)(rng) <= 8;
+
+                    if (cub_order && !cubMeals.empty()) {
+
+                        chosen_idx.push_back(
+                            sample_category(rng, cubMeals)
+                        );
+                    } 
+                    else {
+
+                        // SIDE
+                        if (uniform_int_distribution<int>(1, 100)(rng) <= 95) {
+                            int idx = sample_category(rng, sides);
+
+                            if (idx != -1)
+                                chosen_idx.push_back(idx);
+                        }
+                        // ENTREES
+
+                        int entreeRoll =
+                            uniform_int_distribution<int>(1, 100)(rng);
+
+                        int numEntrees;
+
+                        if (entreeRoll <= 45)
+                            numEntrees = 1;
+                        else if (entreeRoll <= 90)
+                            numEntrees = 2;
+                        else
+                            numEntrees = 3;
+
+                        for (int i = 0; i < numEntrees; ++i) {
+                            int idx = sample_category(rng, entrees);
+
+                            if (idx != -1)
+                                chosen_idx.push_back(idx);
+                        }
+                        // DRINK
+
+                        if (uniform_int_distribution<int>(1, 100)(rng) <= 40) {
+                            int idx = sample_category(rng, drinks);
+
+                            if (idx != -1)
+                                chosen_idx.push_back(idx);
+                        }
+                        // APPETIZER
+
+                        if (uniform_int_distribution<int>(1, 100)(rng) <= 12) {
+                            int idx = sample_category(rng, appetizers);
+
+                            if (idx != -1)
+                                chosen_idx.push_back(idx);
+                        }
+                        // EXTRA / DESSERT
+
+                        if (uniform_int_distribution<int>(1, 100)(rng) <= 7) {
+                            int idx = sample_category(rng, extras);
+
+                            if (idx != -1)
+                                chosen_idx.push_back(idx);
+                        }
                     }
-                    // quantities: small ints, biased to 1
-                    vector<int> qtys;
-                    for (int idx : chosen_idx) {
-                        int q = 1;
-                        int rprob = uniform_int_distribution<int>(0,99)(rng);
-                        if (rprob < 8) q = 2;
-                        else if (rprob < 2) q = 3;
-                        qtys.push_back(q);
+                    map<int, int> item_counts;
+
+                    for (int idx : chosen_idx) { // turns multiple orders of same entree into one menu item with quantity x
+                        item_counts[idx]++;
                     }
                     // compute order total with small per-order noise and occasional discounts
                     double total = 0.0;
-                    for (size_t z = 0; z < chosen_idx.size(); ++z) {
-                        total += menu[chosen_idx[z]].price * qtys[z];
+
+                    for (auto &entry : item_counts) {
+                        int idx = entry.first;
+                        int qty = entry.second;
+
+                        total += menu[idx].price * qty;
                     }
                     // apply small additive noise and occasional rounding / discount
                     normal_distribution<double> nd(0.0, 0.25);
@@ -227,12 +392,20 @@ int main(int argc, char** argv) {
                     // We'll collect them in a static vector printed after Orders to keep consistent IDs
                     // For simplicity, append to a global output stream below
                     // Create OrderItem inserts
-                    for (size_t z = 0; z < chosen_idx.size(); ++z) {
-                        int mid = menu[chosen_idx[z]].id;
-                        int q = qtys[z];
-                        // emit an OrderItem row immediately
-                        cout << "INSERT INTO OrderItem (OrderItemID, OrderID, MenuItemID, Qty) VALUES ("
-                             << order_item_id++ << "," << order_id << "," << mid << "," << q << ");\n";
+                    for (auto &entry : item_counts) {
+                        int idx = entry.first;
+                        int q = entry.second;
+
+                        int mid = menu[idx].id;
+
+                        ostringstream oitem;
+                        oitem << "("
+                            << order_item_id++ << ","
+                            << order_id << ","
+                            << mid << ","
+                            << q << ")";
+
+                        order_items_batch.push_back(oitem.str());
                     }
 
                     order_id++;
@@ -240,23 +413,47 @@ int main(int argc, char** argv) {
                 // flush batches every so often
                 if (!orders_batch.empty() && orders_batch.size() >= 500) {
                     cout << "INSERT INTO Orders (OrderID, OrderDate, OrderTime, Total) VALUES\n";
+
                     for (size_t i = 0; i < orders_batch.size(); ++i) {
-                        cout << orders_batch[i] << (i+1<orders_batch.size() ? ",\n" : ";\n");
+                        cout << orders_batch[i]
+                            << (i + 1 < orders_batch.size() ? ",\n" : ";\n");
                     }
+
+                    cout << "INSERT INTO OrderItem "
+                            "(OrderItemID, OrderID, MenuItemID, MenuItemName, Qty) VALUES\n";
+
+                    for (size_t i = 0; i < order_items_batch.size(); ++i) {
+                        cout << order_items_batch[i]
+                            << (i + 1 < order_items_batch.size() ? ",\n" : ";\n");
+                    }
+
                     orders_batch.clear();
+                    order_items_batch.clear();
                 }
             } // minutes
         } // hours
         // flush remaining orders for day
         if (!orders_batch.empty()) {
             cout << "INSERT INTO Orders (OrderID, OrderDate, OrderTime, Total) VALUES\n";
+
             for (size_t i = 0; i < orders_batch.size(); ++i) {
-                cout << orders_batch[i] << (i+1<orders_batch.size() ? ",\n" : ";\n");
+                cout << orders_batch[i]
+                    << (i + 1 < orders_batch.size() ? ",\n" : ";\n");
             }
+
+            cout << "INSERT INTO OrderItem "
+                    "(OrderItemID, OrderID, MenuItemID, Qty) VALUES\n";
+
+            for (size_t i = 0; i < order_items_batch.size(); ++i) {
+                cout << order_items_batch[i]
+                    << (i + 1 < order_items_batch.size() ? ",\n" : ";\n");
+            }
+
             orders_batch.clear();
+            order_items_batch.clear();
         }
     } // days
 
-    cout << "COMMIT;\n";
+    // cout << "COMMIT;\n";
     return 0;
 }
