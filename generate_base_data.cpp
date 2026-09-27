@@ -12,8 +12,10 @@ struct MenuItem {
 struct InventoryItem {
     int id;
     string name;
+    string unit;
     int quantity;
     int minimum_threshold;
+    int shelf_life;
 };
 
 static string trim_quotes(const string &s) {
@@ -134,6 +136,46 @@ double get_default_price(const string &category) {
     return 5.00;
 }
 
+vector<InventoryItem> load_inventory(const string &path) {
+    ifstream f(path);
+
+    if (!f) {
+        cerr << "Failed to open inventory CSV: " << path << "\n";
+        exit(1);
+    }
+
+    string header;
+    getline(f, header);
+
+    vector<InventoryItem> inventory;
+
+    string line;
+    int id = 1;
+
+    while (getline(f, line)) {
+        if (line.empty())
+            continue;
+
+        vector<string> fields = split_csv_line(line);
+
+        if (fields.size() < 5)
+            continue;
+
+        InventoryItem item;
+
+        item.id = stoi(fields[0]);
+        item.name = fields[1];
+        item.unit = fields[2];
+        item.minimum_threshold = stoi(fields[3]);
+        item.quantity = stoi(fields[4]);
+        item.shelf_life = stoi(fields[5]);
+
+        inventory.push_back(item);
+    }
+
+    return inventory;
+}
+
 vector<MenuItem> load_menu(const string &path) {
     ifstream f(path);
 
@@ -171,7 +213,7 @@ vector<MenuItem> load_menu(const string &path) {
         item.id = id++;
         item.name = name;
         item.category = category;
-        item.price = get_default_price(category);
+        item.price = std::stod(fields[1]);
 
         menu.push_back(item);
     }
@@ -191,11 +233,84 @@ int main(int argc, char **argv) {
 
     string menu_path = argv[1];
 
-    vector<MenuItem> menu = load_menu(menu_path);
+    string inventory_path = argv[2];
 
-    //
+    vector<InventoryItem> inventory = load_inventory(inventory_path);
+
+    vector<MenuItem> menu = load_menu(menu_path);
+    // CREATE TABLES
+    cout << "CREATE TABLE Inventory ("
+        "InventoryID INT PRIMARY KEY,"
+        "ItemName VARCHAR(100) NOT NULL,"
+        "Unit VARCHAR(20) NOT NULL,"
+        "Minimum_Threshold DECIMAL(10,2) NOT NULL,"
+        "Quantity DECIMAL(10,2) NOT NULL,"
+        "ShelfLifeDays INT NOT NULL"
+        ");\n\n";
+
+    cout << "CREATE TABLE InventoryItem ("
+            "ShipmentID INT PRIMARY KEY,"
+            "InventoryID INT NOT NULL,"
+            "WholesalePrice DECIMAL(10,2) NOT NULL,"
+            "Quantity DECIMAL(10,2) NOT NULL,"
+            "ReceivedDate DATE NOT NULL,"
+            "ExpirationDate DATE NOT NULL,"
+            "FOREIGN KEY (InventoryID) REFERENCES Inventory(InventoryID)"
+            ");\n\n";
+
+    cout << "CREATE TABLE MenuItem ("
+            "MenuItemID INT PRIMARY KEY,"
+            "MenuItemName VARCHAR(150) NOT NULL,"
+            "Price DECIMAL(10,2) NOT NULL"
+            ");\n\n";
+
+    cout << "CREATE TABLE MenuItemInventory ("
+            "MenuItemID INT NOT NULL,"
+            "InventoryID INT NOT NULL,"
+            "QuantityRequired DECIMAL(10,3) NOT NULL,"
+            "PRIMARY KEY (MenuItemID, InventoryID),"
+            "FOREIGN KEY (MenuItemID) REFERENCES MenuItem(MenuItemID),"
+            "FOREIGN KEY (InventoryID) REFERENCES Inventory(InventoryID)"
+            ");\n\n";
+
+    cout << "CREATE TABLE Orders ("
+            "OrderID INT PRIMARY KEY,"
+            "OrderDate DATE NOT NULL,"
+            "OrderTime TIME NOT NULL,"
+            "Total DECIMAL(10,2) NOT NULL"
+            ");\n\n";
+
+    cout << "CREATE TABLE OrderItem ("
+            "OrderItemID INT PRIMARY KEY,"
+            "OrderID INT NOT NULL,"
+            "MenuItemID INT NOT NULL,"
+            "Qty INT NOT NULL,"
+            "FOREIGN KEY (OrderID) REFERENCES Orders(OrderID),"
+            "FOREIGN KEY (MenuItemID) REFERENCES MenuItem(MenuItemID)"
+            ");\n\n";
+
+    cout << "BEGIN\n";
+    // INVENTORY
+
+    cout << "INSERT INTO Inventory "
+        "(InventoryID, ItemName, Unit, Minimum_Threshold, Quantity, ShelfLifeDays) VALUES\n";
+
+    for (size_t i = 0; i < inventory.size(); ++i) {
+        cout << "("
+            << inventory[i].id << ",'"
+            << sql_escape(inventory[i].name) << "','"
+            << sql_escape(inventory[i].unit) << "',"
+            << inventory[i].minimum_threshold << ","
+            << inventory[i].quantity << ","
+            << inventory[i].shelf_life
+            << ")";
+
+        if (i + 1 < inventory.size())
+            cout << ",\n";
+        else
+            cout << ";\n";
+    }
     // MENUITEM
-    //
 
     cout << "INSERT INTO MenuItem "
             "(MenuItemID, MenuItemName, Price) VALUES\n";
