@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
             "FOREIGN KEY (MenuItemID) REFERENCES MenuItem(MenuItemID)"
             ");\n\n";
 
-    cout << "BEGIN\n";
+    cout << "BEGIN;\n";
     // INVENTORY
 
     cout << "INSERT INTO Inventory "
@@ -142,6 +142,6 @@ int main(int argc, char **argv) {
         else
             cout << ";\n";
     }
-
+    cout << "COMMIT;/n" ;
     return 0;
 }
