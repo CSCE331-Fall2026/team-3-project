@@ -18,6 +18,12 @@ struct InventoryItem {
     int shelf_life;
 };
 
+struct MenuItemInventoryRow {
+    int menuItemID;
+    int inventoryID;
+    double quantityRequired;
+};
+
 static string trim_quotes(const string &s) {
     if(s.size() >= 2 && s.front() == '"' && s.back() == '"') {
         return s.substr(1,s.size()-2);
@@ -221,13 +227,66 @@ vector<MenuItem> load_menu(const string &path) {
     return menu;
 }
 
+vector<MenuItemInventoryRow> load_recipes(const string &path, const map<string, int> &menu_name_to_id, const map<string, int> &inventory_name_to_id) {
+    ifstream f(path);
+
+    if (!f) {
+        cerr << "Failed to open recipes CSV: " << path << "\n";
+        exit(1);
+    }
+
+    string header;
+    getline(f, header);
+
+    vector<MenuItemInventoryRow> rows;
+    string line;
+
+    while (getline(f, line)) {
+        if (line.empty())
+            continue;
+
+        vector<string> fields = split_csv_line(line);
+
+        if (fields.size() < 4)
+            continue;
+
+        string menu_name = fields[0];
+        string inventory_name = fields[1];
+        double quantity_required = stod(fields[2]);
+
+        auto menu_it = menu_name_to_id.find(menu_name);
+        auto inventory_it = inventory_name_to_id.find(inventory_name);
+
+        if (menu_it == menu_name_to_id.end()) {
+            cerr << "Menu item not found: "
+                 << menu_name << "\n";
+            continue;
+        }
+
+        if (inventory_it == inventory_name_to_id.end()) {
+            cerr << "Inventory item not found: "
+                 << inventory_name << "\n";
+            continue;
+        }
+
+        MenuItemInventoryRow row;
+
+        row.menuItemID = menu_it->second;
+        row.inventoryID = inventory_it->second;
+        row.quantityRequired = quantity_required;
+
+        rows.push_back(row);
+    }
+
+    return rows;
+}
+
 int main(int argc, char **argv) {
 
-    if (argc < 2) {
+    if (argc < 4) {
         cerr << "Usage: "
-             << argv[0]
-             << " menu.csv\n";
-
+            << argv[0]
+            << " MenuItems.csv Inventory.csv Recipes.csv\n";
         return 1;
     }
 
@@ -240,13 +299,13 @@ int main(int argc, char **argv) {
     vector<MenuItem> menu = load_menu(menu_path);
     // CREATE TABLES
     cout << "CREATE TABLE Inventory ("
-        "InventoryID INT PRIMARY KEY,"
-        "ItemName VARCHAR(100) NOT NULL,"
-        "Unit VARCHAR(20) NOT NULL,"
-        "Minimum_Threshold DECIMAL(10,2) NOT NULL,"
-        "Quantity DECIMAL(10,2) NOT NULL,"
-        "ShelfLifeDays INT NOT NULL"
-        ");\n\n";
+            "InventoryID INT PRIMARY KEY,"
+            "ItemName VARCHAR(100) NOT NULL,"
+            "Unit VARCHAR(20) NOT NULL,"
+            "Minimum_Threshold DECIMAL(10,2) NOT NULL,"
+            "Quantity DECIMAL(10,2) NOT NULL,"
+            "ShelfLifeDays INT NOT NULL"
+            ");\n\n";
 
     cout << "CREATE TABLE InventoryItem ("
             "ShipmentID INT PRIMARY KEY,"
@@ -293,7 +352,7 @@ int main(int argc, char **argv) {
     // INVENTORY
 
     cout << "INSERT INTO Inventory "
-        "(InventoryID, ItemName, Unit, Minimum_Threshold, Quantity, ShelfLifeDays) VALUES\n";
+            "(InventoryID, ItemName, Unit, Minimum_Threshold, Quantity, ShelfLifeDays) VALUES\n";
 
     for (size_t i = 0; i < inventory.size(); ++i) {
         cout << "("
@@ -328,6 +387,35 @@ int main(int argc, char **argv) {
              << ")";
 
         if (i + 1 < menu.size())
+            cout << ",\n";
+        else
+            cout << ";\n";
+    }
+
+    map<string, int> menu_name_to_id;
+    map<string, int> inventory_name_to_id;
+
+    for (const auto &item : menu) {
+        menu_name_to_id[item.name] = item.id;
+    }
+
+    for (const auto &item : inventory) {
+        inventory_name_to_id[item.name] = item.id;
+    }
+    vector<MenuItemInventoryRow> recipes = load_recipes(argv[3], menu_name_to_id, inventory_name_to_id);
+
+    cout << "INSERT INTO MenuItemInventory "
+            "(MenuItemID, InventoryID, QuantityRequired) VALUES\n";
+
+    for (size_t i = 0; i < recipes.size(); ++i) {
+        cout << "("
+            << recipes[i].menuItemID << ","
+            << recipes[i].inventoryID << ","
+            << fixed << setprecision(3)
+            << recipes[i].quantityRequired
+            << ")";
+
+        if (i + 1 < recipes.size())
             cout << ",\n";
         else
             cout << ";\n";
