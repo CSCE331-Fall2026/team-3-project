@@ -1,165 +1,16 @@
 #include <bits/stdc++.h>
 #include <string>
+#include "data_utils.h"
+
 using namespace std;
 using rng_t = std::mt19937_64;
 
-struct MenuItem {
-    int id;
-    string name;
-    double price;
-    double weight; // sampling weight
-    string category;
-};
-
-static string trim_quotes(const string &s) {
-    if (s.size() >= 2 && s.front() == '"' && s.back() == '"') return s.substr(1, s.size()-2);
-    return s;
-}
-
-static vector<string> split_csv_line(const string &line) {
-    vector<string> out;
-    string cur;
-    bool inq = false;
-    for (size_t i = 0; i < line.size(); ++i) {
-        char c = line[i];
-        if (c == '"' ) {
-            inq = !inq;
-            cur += c; // keep quotes for later trimming
-        } else if (c == ',' && !inq) {
-            out.push_back(trim_quotes(cur));
-            cur.clear();
-        } else cur += c;
-    }
-    out.push_back(trim_quotes(cur));
-    return out;
-}
-
-string classify_item(const string &original_name) {
-    string name = original_name;
-
-    for (char &c : name)
-        c = toupper((unsigned char)c);
-
-    // Individual Cub Meal nutrition portions are not separate POS items
-    if (name.find("- CUB MEAL") != string::npos)
-        return "EXCLUDE";
-
-    // Full Cub Meal products
-    if (name.find("CUB MEAL (") != string::npos)
-        return "CUB_MEAL";
-
-    // Sides
-    if (name == "CHOW FUN" ||
-        name == "CHOW MEIN" ||
-        name == "FRIED RICE" ||
-        name == "SUPER GREENS" ||
-        name == "WHITE STEAMED RICE")
-        return "SIDE";
-
-    // Appetizers
-    if (name.find("EGG ROLL") != string::npos ||
-        name.find("POTSTICKER (") != string::npos ||
-        name.find("CREAM CHEESE RANGOON") != string::npos ||
-        name.find("SPRING ROLL") != string::npos)
-        return "APPETIZER";
-
-    // Extras / sauces / desserts
-    if (name.find("SAUCE") != string::npos ||
-        name == "HOT MUSTARD" ||
-        name == "FORTUNE COOKIE" ||
-        name == "TREE TOP APPLE CRISPS" ||
-        name == "APPLE PIE ROLL")
-        return "EXTRA";
-
-    // Soup
-    if (name.find("SOUP") != string::npos)
-        return "SIDE";
-
-    // Drinks
-    if (name.find("COCA-COLA") != string::npos ||
-        name.find("COKE") != string::npos ||
-        name.find("SPRITE") != string::npos ||
-        name.find("FANTA") != string::npos ||
-        name.find("DR PEPPER") != string::npos ||
-        name.find("ROOT BEER") != string::npos ||
-        name.find("TEA") != string::npos ||
-        name.find("LEMONADE") != string::npos ||
-        name.find("POWERADE") != string::npos ||
-        name.find("GINGER ALE") != string::npos ||
-        name.find("VITAMINWATER") != string::npos ||
-        name.find("REFRESHER") != string::npos)
-        return "DRINK";
-
-    // Everything remaining in this dataset is an entree
-    return "ENTREE";
-}
-
-vector<MenuItem> load_menu(const string &path) {
-    ifstream f(path);
-    if (!f) {
-        cerr << "Failed to open menu CSV: " << path << "\n";
-        exit(1);
-    }
-    string header;
-    getline(f, header);
-    auto cols = split_csv_line(header);
-    int price_col = -1;
-    for (size_t i = 0; i < cols.size(); ++i) {
-        string c = cols[i];
-        for (auto &ch : c) ch = tolower((unsigned char)ch);
-        if (c.find("price") != string::npos) price_col = (int)i;
-    }
-    vector<MenuItem> menu;
-
-    string line;
-    int id = 1;
-    while (getline(f, line)) {
-        if (line.empty()) continue;
-        auto fields = split_csv_line(line);
-        string name = fields.size() > 0 ? fields[0] : ("item" + to_string(id));
-        double price = 5.0;
-        if (price_col >= 0 && (size_t)price_col < fields.size()) {
-            try { price = stod(fields[price_col]); } catch (...) { price = 5.0; }
-        }
-        MenuItem it;
-        it.id = id++;
-        it.name = name;
-        it.price = price;
-        it.category = classify_item(name);
-
-        if (it.category == "EXCLUDE")
-            continue;
-        it.weight = max(0.1, 50.0 - it.price * 2.0);
-
-        menu.push_back(it);
-        }
-        
-    if (menu.empty()) {
-        cerr << "No menu items parsed\n"; exit(1);
-    }
-    return menu;
-}
 
 // Ornstein-Uhlenbeck step
 double ou_step(rng_t &rng, double x, double theta, double mu, double sigma, double dt) {
     normal_distribution<double> nd(0.0, 1.0);
     double dW = nd(rng) * sqrt(dt);
     return x + theta * (mu - x) * dt + sigma * dW;
-}
-
-// helper to sample index from weights
-int sample_index(rng_t &rng, const vector<double> &weights) {
-    discrete_distribution<int> dd(weights.begin(), weights.end());
-    return dd(rng);
-}
-
-string sql_escape(const string &s) {
-    string o; o.reserve(s.size());
-    for (char c : s) {
-        if (c == '\'') o += "''";
-        else o += c;
-    }
-    return o;
 }
 
 int sample_category(rng_t &rng, const vector<int> &items) {
@@ -212,10 +63,6 @@ int main(int argc, char** argv) {
             cubMeals.push_back(i);
     }
 
-    // normalize weights vector for sampling
-    vector<double> weights;
-    weights.reserve(menu.size());
-    for (auto &m : menu) weights.push_back(m.weight);
 
     // Simulation parameters
     double base_lambda_per_min = 0.2; // baseline orders per minute (adjust to scale)
@@ -284,8 +131,6 @@ int main(int argc, char** argv) {
                 for (int a = 0; a < arrivals; ++a) {
                     // decide order time within the minute uniformly
                     int sec = uniform_int_distribution<int>(0,59)(rng);
-                    // create order items: number of distinct items ~ 1 + Poisson(0.5)
-                    int k = 1 + poisson_distribution<int>(0.5)(rng);
                     // sample with replacement if possible
                     vector<int> chosen_idx;
 
@@ -420,7 +265,7 @@ int main(int argc, char** argv) {
                     }
 
                     cout << "INSERT INTO OrderItem "
-                            "(OrderItemID, OrderID, MenuItemID, MenuItemName, Qty) VALUES\n";
+                            "(OrderItemID, OrderID, MenuItemID, Qty) VALUES\n";
 
                     for (size_t i = 0; i < order_items_batch.size(); ++i) {
                         cout << order_items_batch[i]
