@@ -1,0 +1,100 @@
+InventoryID,ItemName,Unit,MinimumThreshold,StartingQuantity,ShelfLifeDays
+100000,Chicken,lbs,20,100,3
+100001,Chicken Breast,lbs,20,100,3
+100002,Beef,lbs,20,75,4
+100003,Sirloin Steak,lbs,15,60,4
+100004,Shrimp,lbs,15,50,2
+100005,White Fish,lbs,10,40,2
+100006,Tofu,lbs,10,40,7
+100007,Broccoli,lbs,10,50,5
+100008,Eggplant,lbs,10,40,5
+100009,Mushrooms,lbs,10,40,5
+100010,String Beans,lbs,10,40,5
+100011,Potatoes,lbs,15,60,21
+100012,Bell Peppers,lbs,10,40,7
+100013,Onions,lbs,15,60,30
+100014,Green Onions,lbs,5,20,7
+100015,Garlic,lbs,5,20,30
+100016,Ginger,lbs,5,20,21
+100017,Cabbage,lbs,10,40,14
+100018,Carrots,lbs,10,40,21
+100019,Mixed Greens,lbs,10,40,5
+100020,White Rice,lbs,25,150,180
+100021,Fried Rice Mix,lbs,20,100,30
+100022,Chow Mein Noodles,lbs,20,100,14
+100023,Chow Fun Noodles,lbs,15,75,7
+100024,Cooking Oil,oz,200,1000,180
+100025,Soy Sauce,oz,100,500,180
+100026,Orange Sauce,oz,100,500,60
+100027,Teriyaki Sauce,oz,100,500,60
+100028,Kung Pao Sauce,oz,75,350,60
+100029,Black Pepper Sauce,oz,75,350,60
+100030,Sweet and Sour Sauce,oz,75,350,60
+100031,SweetFire Sauce,oz,75,350,60
+100032,Honey Sesame Sauce,oz,75,350,60
+100033,Honey Walnut Sauce,oz,50,250,45
+100034,Chili Sauce,oz,50,250,90
+100035,Potsticker Sauce,oz,50,250,60
+100036,Hot Mustard,oz,50,250,90
+100037,General Stir Fry Sauce,oz,100,500,60
+100038,Cornstarch,lbs,10,40,365
+100039,Flour,lbs,10,50,180
+100040,Sugar,lbs,10,50,365
+100041,Salt,lbs,5,25,730
+100042,Black Pepper,lbs,3,15,365
+100043,Peanuts,lbs,5,25,90
+100044,Walnuts,lbs,5,25,90
+100045,Sesame Seeds,lbs,5,20,180
+100046,Eggs,each,60,300,21
+100047,Chicken Egg Rolls,each,50,250,90
+100048,Chicken Potstickers,each,75,300,90
+100049,Cream Cheese Rangoons,each,75,300,60
+100050,Vegetable Spring Rolls,each,50,250,90
+100051,Apple Pie Rolls,each,30,150,90
+100052,Fortune Cookies,each,150,750,180
+100053,Apple Crisps,each,50,250,180
+100054,Hot and Sour Soup Base,oz,100,500,30
+100055,Coca-Cola Syrup,oz,100,500,90
+100056,Coca-Cola Zero Sugar Syrup,oz,75,350,90
+100057,Cherry Coca-Cola Syrup,oz,50,250,90
+100058,Diet Coke Syrup,oz,75,350,90
+100059,Dr Pepper Syrup,oz,75,350,90
+100060,Sprite Syrup,oz,75,350,90
+100061,Sprite Zero Syrup,oz,50,250,90
+100062,Barq's Root Beer Syrup,oz,50,250,90
+100063,Fanta Orange Syrup,oz,50,250,90
+100064,Fanta Strawberry Syrup,oz,50,250,90
+100065,Fanta Fruit Punch Syrup,oz,50,250,90
+100066,Ginger Ale Syrup,oz,50,250,90
+100067,Powerade Fruit Punch Syrup,oz,50,250,90
+100068,Powerade Mountain Berry Syrup,oz,50,250,90
+100069,Hi-C Fruit Punch Syrup,oz,50,250,90
+100070,Lemonade Mix,oz,75,350,60
+100071,Light Lemonade Mix,oz,50,250,60
+100072,Black Tea Concentrate,oz,75,350,60
+100073,Sweet Tea Concentrate,oz,75,350,60
+100074,Lemon Green Tea Concentrate,oz,50,250,60
+100075,Raspberry Tea Concentrate,oz,50,250,60
+100076,Passionfruit Mango Tea Concentrate,oz,50,250,60
+100077,Mango Guava Tea Concentrate,oz,40,200,60
+100078,Peach Lychee Refresher Mix,oz,40,200,60
+100079,Watermelon Mango Refresher Mix,oz,40,200,60
+100080,Pomegranate Pineapple Lemonade Mix,oz,40,200,60
+100081,Vitaminwater Syrup,oz,40,200,90
+100082,Small Drink Cups,each,100,500,3650
+100083,Medium Drink Cups,each,100,500,3650
+100084,Large Drink Cups,each,100,500,3650
+100085,Kids Drink Cups,each,50,250,3650
+100086,Small Drink Lids,each,100,500,3650
+100087,Medium Drink Lids,each,100,500,3650
+100088,Large Drink Lids,each,100,500,3650
+100089,Kids Drink Lids,each,50,250,3650
+100090,Straws,each,150,750,3650
+100091,Small Food Containers,each,100,500,3650
+100092,Medium Food Containers,each,100,500,3650
+100093,Large Food Containers,each,100,500,3650
+100094,Cub Meal Containers,each,50,250,3650
+100095,Takeout Bags,each,100,500,3650
+100096,Napkins,each,250,1500,3650
+100097,Forks,each,150,750,3650
+100098,Bottled Water,each,50,100,3650
