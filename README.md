@@ -34,6 +34,7 @@ Run `g++ generate_base_data.cpp data_utils.cpp -o generate_base_data`\
 `./generate_base_data MenuItems.csv Inventory.csv Recipes.csv > generated_data` \
 `./noise MenuItems.csv Inventory.csv Recipes.csv 364 3 12345 >> generated_data` \
 `generate_base_data.cpp` loads `Inventory`, `MenuItem`, and `MenuItemInventory` \
-`noise.cpp` generates data for `Order`, `OrderItem`, and `InventoryItem`
+`noise.cpp` generates data for `Order`, `OrderItem`, and `InventoryItem` \
+You should then run `psql -h csce-315-db.engr.tamu.edu -p 5432 -U team3 -d team3db -v ON_ERROR_STOP=1 -f generated_data` to enter the data into the database
 
 
