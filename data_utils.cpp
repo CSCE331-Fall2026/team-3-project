@@ -237,3 +237,23 @@ vector<MenuItemInventoryRow> load_recipes(const string &path, const map<string, 
 
     return rows;
 }
+
+string format_date(const tm &date) {
+    char buffer[20];
+
+    strftime(
+        buffer,
+        sizeof(buffer),
+        "%Y-%m-%d",
+        &date
+    );
+
+    return string(buffer);
+}
+
+tm add_days(tm date, int days) {
+    date.tm_mday += days;
+    mktime(&date);
+
+    return date;
+}

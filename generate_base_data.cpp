@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
             ");\n\n";
 
     cout << "CREATE TABLE InventoryItem ("
-            "ShipmentID INT PRIMARY KEY,"
+            "ShipmentID BIGINT PRIMARY KEY,"
             "InventoryID INT NOT NULL,"
             "WholesalePrice DECIMAL(10,2) NOT NULL,"
             "Quantity DECIMAL(10,2) NOT NULL,"
@@ -142,6 +142,5 @@ int main(int argc, char **argv) {
         else
             cout << ";\n";
     }
-    cout << "COMMIT;/n" ;
     return 0;
 }
