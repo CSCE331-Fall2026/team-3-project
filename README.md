@@ -30,7 +30,8 @@ The order is pretty much the symphony of orderItems, where it contains the total
 
 ## Data Generation
 Run `g++ generate_base_data.cpp data_utils.cpp -o generate_base_data`\
-`g++ generate noise.cpp data_utils.cpp -o noise` \
+`g++ generate_base_data.cpp data_utils.cpp -o generate_base_data` \
+`g++ noise.cpp data_utils.cpp -o noise` \
 `./generate_base_data MenuItems.csv Inventory.csv Recipes.csv > generated_data` \
 `./noise MenuItems.csv Inventory.csv Recipes.csv 364 3 12345 >> generated_data` \
 `generate_base_data.cpp` loads `Inventory`, `MenuItem`, and `MenuItemInventory` \
