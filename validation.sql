@@ -77,19 +77,12 @@ JOIN MenuItem ON OrderItem.MenuItemID = MenuItem.MenuItemID
 GROUP BY MenuItemName
 ORDER BY SUM(Qty) DESC;
 
-/* query 8 - Checks to see if used ingredients are more than shipped ingredients */
+/* query 8 - Checks to see recieve date and expiration date are realistic */
 
-SELECT Inventory.ItemName, r.first_ship, u.first_order, r.total_received, u.total_used
-FROM Inventory
-JOIN (SELECT InventoryID, MIN(ReceivedDate) AS first_ship, SUM(Quantity) AS total_received
-      FROM InventoryItem
-      GROUP BY InventoryID) r ON Inventory.InventoryID = r.InventoryID
-JOIN (SELECT MenuItemInventory.InventoryID, MIN(Orders.OrderDate) AS first_order, SUM(OrderItem.Qty * MenuItemInventory.QuantityRequired) AS total_used
-      FROM Orders
-      JOIN OrderItem ON Orders.OrderID = OrderItem.OrderID
-      JOIN MenuItemInventory ON OrderItem.MenuItemID = MenuItemInventory.MenuItemID
-      GROUP BY MenuItemInventory.InventoryID) u ON Inventory.InventoryID = u.InventoryID
-WHERE u.total_used > r.total_received
-ORDER BY r.first_ship DESC;
+SELECT Inventory.ItemName, InventoryItem.ShipmentID, InventoryItem.ReceivedDate, InventoryItem.ExpirationDate
+FROM InventoryItem
+JOIN Inventory ON InventoryItem.InventoryID = Inventory.InventoryID
+WHERE InventoryItem.ExpirationDate < CURRENT_DATE
+ORDER BY InventoryItem.ExpirationDate;
 
 
