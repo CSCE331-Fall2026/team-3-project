@@ -15,7 +15,7 @@ public class jdbcSQL {
   public static void openConnection(dbSetup credentials) {
     try {
       conn = DriverManager.getConnection(
-        "jdbc:postgresql://csce-315-db.engr.tamu.edu/hardware_store_sthomas",
+        "jdbc:postgresql://csce-315-db.engr.tamu.edu/team3db",
         credentials.user, credentials.pswd);
     } catch (Exception e) {
       e.printStackTrace();
@@ -47,19 +47,17 @@ public class jdbcSQL {
       // create an sql statement
       Statement stmt = conn.createStatement();
       String sqlStatement =
-        "SELECT product.p_descript AS p_name, vendor.v_name AS v_name " +
-        "FROM product " +
-        "LEFT JOIN vendor ON product.v_code = vendor.v_code " +
-        "ORDER BY vendor.v_name";
+        "SELECT * FROM MenuItem";
 
       // send the sql statement to the db
       ResultSet result = stmt.executeQuery(sqlStatement);
 
+      String data = String.format("%-30s", "Vendors") + "\tProducts\n";
       // output result
       System.out.println(String.format("%-30s", "Vendors") + "\tProducts");
       System.out.println("=========================================================");
       while (result.next()) {
-        System.out.println(String.format("%-30s", result.getString("v_name")) + "\t" + result.getString("p_name"));
+        data += String.format("%-30s", result.getString("menuitemname")) + "\t" + result.getString("price") + "\n";
       }
 
     } catch (Exception e) {

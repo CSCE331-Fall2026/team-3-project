@@ -18,7 +18,7 @@ public class jdbcGUI {
   public static void openConnection(dbSetup credentials) {
     try {
       conn = DriverManager.getConnection(
-        "jdbc:postgresql://csce-315-db.engr.tamu.edu/team3", 
+        "jdbc:postgresql://csce-315-db.engr.tamu.edu/team3db", 
         credentials.user, credentials.pswd);
     } catch (Exception e) {
       e.printStackTrace();
