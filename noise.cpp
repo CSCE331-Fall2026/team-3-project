@@ -1,73 +1,10 @@
 #include <bits/stdc++.h>
+#include <string>
+#include "data_utils.h"
+
 using namespace std;
 using rng_t = std::mt19937_64;
 
-struct MenuItem {
-    int id;
-    string name;
-    double price;
-    double weight; // sampling weight
-};
-
-static string trim_quotes(const string &s) {
-    if (s.size() >= 2 && s.front() == '"' && s.back() == '"') return s.substr(1, s.size()-2);
-    return s;
-}
-
-static vector<string> split_csv_line(const string &line) {
-    vector<string> out;
-    string cur;
-    bool inq = false;
-    for (size_t i = 0; i < line.size(); ++i) {
-        char c = line[i];
-        if (c == '"' ) {
-            inq = !inq;
-            cur += c; // keep quotes for later trimming
-        } else if (c == ',' && !inq) {
-            out.push_back(trim_quotes(cur));
-            cur.clear();
-        } else cur += c;
-    }
-    out.push_back(trim_quotes(cur));
-    return out;
-}
-
-vector<MenuItem> load_menu(const string &path) {
-    ifstream f(path);
-    if (!f) {
-        cerr << "Failed to open menu CSV: " << path << "\n";
-        exit(1);
-    }
-    string header;
-    getline(f, header);
-    auto cols = split_csv_line(header);
-    int price_col = -1;
-    for (size_t i = 0; i < cols.size(); ++i) {
-        string c = cols[i];
-        for (auto &ch : c) ch = tolower((unsigned char)ch);
-        if (c.find("price") != string::npos) price_col = (int)i;
-    }
-    vector<MenuItem> menu;
-    string line;
-    int id = 1;
-    while (getline(f, line)) {
-        if (line.empty()) continue;
-        auto fields = split_csv_line(line);
-        string name = fields.size() > 0 ? fields[0] : ("item" + to_string(id));
-        double price = 5.0;
-        if (price_col >= 0 && (size_t)price_col < fields.size()) {
-            try { price = stod(fields[price_col]); } catch (...) { price = 5.0; }
-        }
-        MenuItem it; it.id = id++; it.name = name; it.price = price;
-        // weight: cheaper items typically ordered more; ensure positive
-        it.weight = max(0.1, 50.0 - it.price * 2.0);
-        menu.push_back(it);
-    }
-    if (menu.empty()) {
-        cerr << "No menu items parsed\n"; exit(1);
-    }
-    return menu;
-}
 
 // Ornstein-Uhlenbeck step
 double ou_step(rng_t &rng, double x, double theta, double mu, double sigma, double dt) {
@@ -76,44 +13,423 @@ double ou_step(rng_t &rng, double x, double theta, double mu, double sigma, doub
     return x + theta * (mu - x) * dt + sigma * dW;
 }
 
-// helper to sample index from weights
-int sample_index(rng_t &rng, const vector<double> &weights) {
-    discrete_distribution<int> dd(weights.begin(), weights.end());
-    return dd(rng);
+int sample_category(rng_t &rng, const vector<int> &items) {
+    if (items.empty()) {
+        return -1;
+    }
+
+    return items[
+        uniform_int_distribution<int>(0, items.size() - 1)(rng)
+    ];
 }
 
-string sql_escape(const string &s) {
-    string o; o.reserve(s.size());
-    for (char c : s) {
-        if (c == '\'') o += "''";
-        else o += c;
-    }
-    return o;
+//Shipment helper functions
+long long generate_shipment_id(const tm &date, int sequence) {
+    long long year = date.tm_year + 1900;
+    long long month = date.tm_mon + 1;
+    long long day = date.tm_mday;
+
+    long long date_number = year * 10000 + month * 100 + day;
+
+    return date_number * 1000 + sequence;
 }
+
+double calculate_inventory_quantity(int inventoryID, const map<int, deque<Shipment>> &shipments) {
+    auto it = shipments.find(inventoryID);
+
+    if (it == shipments.end()) {
+        return 0.0;
+    }
+
+    double total = 0.0;
+
+    for (const Shipment &shipment : it->second) {
+        total += shipment.quantity;
+    }
+
+    return total;
+}
+
+double get_total_inventory(int inventoryID, const map<int, double> &base_inventory, const map<int, deque<Shipment>> &shipments) {
+    double total = 0.0;
+
+    auto base_it = base_inventory.find(inventoryID);
+
+    if (base_it != base_inventory.end()) {
+        total += base_it->second;
+    }
+
+    total += calculate_inventory_quantity(inventoryID,shipments);
+
+    return total;
+}
+
+double calculate_reorder_quantity(const InventoryItem &item, double current_quantity) {
+    double target_quantity = item.quantity * 4;
+
+    if (current_quantity >= target_quantity) {
+        return 0.0;
+    }
+
+    return (target_quantity - current_quantity);
+}
+
+double generate_wholesale_price(rng_t &rng, const InventoryItem &item) {
+    double base_price;
+
+    if (item.unit == "lbs") {
+        base_price = 2.50;
+    }
+    else if (item.unit == "oz") {
+        base_price = 0.15;
+    }
+    else {
+        base_price = 0.30;
+    }
+
+    normal_distribution<double> price_noise(1.0,0.05);
+
+    double price = base_price * price_noise(rng);
+
+    if (price < 0.01) {
+        price = 0.01;
+    }
+
+    return price;
+}
+
+Shipment create_shipment(const InventoryItem &item, double quantity, const tm &received_date, int sequence, rng_t &rng) {
+    Shipment shipment;
+
+    shipment.shipmentID = generate_shipment_id(received_date, sequence);
+
+    shipment.inventoryID = item.id;
+
+    shipment.quantity = quantity;
+
+    shipment.wholesalePrice = generate_wholesale_price(rng, item);
+
+    shipment.receivedDate = format_date(received_date);
+
+    tm expiration = add_days(received_date, item.shelf_life);
+
+    shipment.expirationDate = format_date(expiration);
+
+    return shipment;
+}
+
+void print_shipment_insert(const Shipment &shipment) {
+    cout << "INSERT INTO InventoryItem "
+            "(ShipmentID, InventoryID, WholesalePrice, Quantity, "
+            "ReceivedDate, ExpirationDate) VALUES (";
+
+    cout << shipment.shipmentID << ","
+         << shipment.inventoryID << ","
+         << fixed << setprecision(2)
+         << shipment.wholesalePrice << ","
+         << fixed << setprecision(3)
+         << shipment.quantity << ",'"
+         << shipment.receivedDate << "','"
+         << shipment.expirationDate << "');\n";
+}
+
+void print_shipment_update(const Shipment &shipment) {
+    cout << "UPDATE InventoryItem "
+            "SET Quantity = "
+         << fixed << setprecision(3)
+         << shipment.quantity
+         << " WHERE ShipmentID = "
+         << shipment.shipmentID
+         << ";\n";
+}
+
+void print_shipment_delete(long long shipmentID) {
+    cout << "DELETE FROM InventoryItem "
+            "WHERE ShipmentID = "
+         << shipmentID
+         << ";\n";
+}
+
+void print_inventory_update(int inventoryID, double quantity) {
+    cout << "UPDATE Inventory "
+            "SET Quantity = "
+         << fixed << setprecision(3)
+         << quantity
+         << " WHERE InventoryID = "
+         << inventoryID
+         << ";\n";
+}
+
+bool consume_inventory_fifo(int inventoryID, double amount, map<int, double> &base_inventory, map<int, deque<Shipment>> &shipments) {
+    double available = get_total_inventory(inventoryID, base_inventory, shipments);
+
+    if (available < amount) {
+        cerr << "Not enough inventory for InventoryID "
+             << inventoryID
+             << ". Needed: " << amount
+             << ", Available: " << available
+             << "\n";
+
+        return false;
+    }
+
+    // Consume original starting inventory first
+    double &base_qty = base_inventory[inventoryID];
+
+    if (base_qty > 0) {
+        double used = min(base_qty, amount);
+
+        base_qty -= used;
+        amount -= used;
+    }
+
+    // Then consume Sunday shipment lots FIFO
+    auto &queue = shipments[inventoryID];
+
+    while (amount > 0.000001 && !queue.empty()) {
+        Shipment &oldest = queue.front();
+
+        if (oldest.quantity <= amount) {
+            amount -= oldest.quantity;
+            queue.pop_front();
+        }
+        else {
+            oldest.quantity -= amount;
+            amount = 0;
+        }
+    }
+
+    return true;
+}
+
+bool consume_menu_item(int menuItemID, int qty, const map<int, vector<MenuItemInventoryRow>> &recipe_map, map<int, double> &base_inventory, map<int, deque<Shipment>> &shipments) {
+    auto it = recipe_map.find(menuItemID);
+
+    if (it == recipe_map.end()) {
+        return false;
+    }
+
+    // First check that every ingredient is available
+    for (const auto &ingredient : it->second) {
+
+        double amount = ingredient.quantityRequired * qty;
+
+        double available = get_total_inventory(ingredient.inventoryID, base_inventory, shipments);
+
+        if (available < amount) {
+            cerr << "Not enough InventoryID "
+                 << ingredient.inventoryID
+                 << " for MenuItemID "
+                 << menuItemID << "\n";
+
+            return false;
+        }
+    }
+
+    // Everything is available, now actually consume it
+    for (const auto &ingredient : it->second) {
+
+        double amount = ingredient.quantityRequired * qty;
+
+        consume_inventory_fifo(ingredient.inventoryID, amount, base_inventory, shipments);
+    }
+
+    return true;
+}
+
+void add_shipment(const Shipment &shipment, map<int, deque<Shipment>> &shipments
+) {
+    shipments[shipment.inventoryID].push_back(shipment);
+}
+
+void restock_inventory(const tm &day, const vector<InventoryItem> &inventory, const map<int, double> &base_inventory, map<int, deque<Shipment>> &shipments, rng_t &rng) {
+    if (day.tm_wday != 0) {
+        return;
+    }
+
+    int sequence = 1;
+
+    for (const InventoryItem &item : inventory) {
+
+        double current = get_total_inventory(item.id, base_inventory, shipments);
+
+        double quantity_to_order = calculate_reorder_quantity(item, current);
+
+        if (quantity_to_order <= 0) { 
+            continue;
+        }
+
+        Shipment shipment = create_shipment(item, quantity_to_order, day, sequence++, rng);
+        
+        add_shipment(shipment, shipments);
+        
+    }
+}
+
+map<int, vector<MenuItemInventoryRow>> build_recipe_map(const vector<MenuItemInventoryRow> &recipes) {
+    map<int, vector<MenuItemInventoryRow>> recipe_map;
+
+    for (const auto &row : recipes) {
+        recipe_map[row.menuItemID].push_back(row);
+    }
+
+    return recipe_map;
+}
+
+void print_final_inventory_updates(const vector<InventoryItem> &inventory, const map<int, double> &base_inventory, const map<int, deque<Shipment>> &shipments) {
+    cout << "UPDATE Inventory AS i "
+            "SET Quantity = v.Quantity "
+            "FROM (VALUES\n";
+
+    for (size_t i = 0; i < inventory.size(); ++i) {
+
+        double quantity = get_total_inventory(inventory[i].id, base_inventory, shipments);
+
+        cout << "("
+             << inventory[i].id << ","
+             << fixed << setprecision(3)
+             << quantity
+             << ")";
+
+        if (i + 1 < inventory.size())
+            cout << ",\n";
+        else
+            cout << "\n";
+    }
+
+    cout << ") AS v(InventoryID, Quantity) "
+            "WHERE i.InventoryID = v.InventoryID;\n";
+}
+
+void print_final_shipment_updates(const map<int, deque<Shipment>> &shipments) {
+    for (const auto &entry : shipments) {
+        for (const Shipment &shipment : entry.second) {
+            print_shipment_update(shipment);
+        }
+    }
+}void print_final_shipments(
+    const map<int, deque<Shipment>> &shipments
+) {
+    vector<Shipment> remaining;
+
+    for (const auto &entry : shipments) {
+        for (const Shipment &shipment : entry.second) {
+            remaining.push_back(shipment);
+        }
+    }
+
+    if (remaining.empty()) {
+        return;
+    }
+
+    cout << "INSERT INTO InventoryItem "
+            "(ShipmentID, InventoryID, WholesalePrice, Quantity, "
+            "ReceivedDate, ExpirationDate) VALUES\n";
+
+    for (size_t i = 0; i < remaining.size(); ++i) {
+
+        const Shipment &shipment = remaining[i];
+
+        cout << "("
+             << shipment.shipmentID << ","
+             << shipment.inventoryID << ","
+             << fixed << setprecision(2)
+             << shipment.wholesalePrice << ","
+             << fixed << setprecision(3)
+             << shipment.quantity << ",'"
+             << shipment.receivedDate << "','"
+             << shipment.expirationDate << "')";
+
+        if (i + 1 < remaining.size()) {
+            cout << ",\n";
+        }
+        else {
+            cout << ";\n";
+        }
+    }
+}
+
+
 
 int main(int argc, char** argv) {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
 
-    if (argc < 2) {
-        cerr << "Usage: " << argv[0] << " menu.csv [days=7] [peak_day=3(Wed)] [seed]\n";
+    if (argc < 4) {
+        cerr << "Usage: " << argv[0]
+            << " MenuItems.csv Inventory.csv Recipes.csv "
+            << "[days=7] [peak_day=3] [seed]\n";
         return 1;
     }
+
     string menu_path = argv[1];
+    string inventory_path = argv[2];
+    string recipe_path = argv[3];
+
     int days = 7;
-    if (argc >= 3) days = stoi(argv[2]);
-    int peak_day = 3; // 0=Sun..6=Sat
-    if (argc >= 4) peak_day = stoi(argv[3]);
-    uint64_t seed = (uint64_t)chrono::high_resolution_clock::now().time_since_epoch().count();
-    if (argc >= 5) seed = stoull(argv[4]);
+    if (argc >= 5) days = stoi(argv[4]);
+
+    int peak_day = 3;
+    if (argc >= 6) peak_day = stoi(argv[5]);
+
+    uint64_t seed =
+        (uint64_t)chrono::high_resolution_clock::now()
+            .time_since_epoch().count();
+
+    if (argc >= 7)
+        seed = stoull(argv[6]);
 
     rng_t rng(seed);
     auto menu = load_menu(menu_path);
 
-    // normalize weights vector for sampling
-    vector<double> weights;
-    weights.reserve(menu.size());
-    for (auto &m : menu) weights.push_back(m.weight);
+    auto inventory = load_inventory(inventory_path);
+
+    map<string, int> menu_name_to_id;
+    map<string, int> inventory_name_to_id;
+
+    for (const auto &item : menu)
+        menu_name_to_id[item.name] = item.id;
+
+    for (const auto &item : inventory)
+        inventory_name_to_id[item.name] = item.id;
+
+    auto recipes = load_recipes(
+        recipe_path,
+        menu_name_to_id,
+        inventory_name_to_id
+    );
+
+    auto recipe_map = build_recipe_map(recipes);
+
+    map<int, deque<Shipment>> shipments;
+    map<int, double> base_inventory;
+
+    for (const auto &item : inventory) {
+        base_inventory[item.id] = item.quantity;
+    }
+
+    vector<int> entrees;
+    vector<int> sides;
+    vector<int> drinks;
+    vector<int> appetizers;
+    vector<int> extras;
+    vector<int> cubMeals;
+
+    for (size_t i = 0; i < menu.size(); ++i) {
+        if (menu[i].category == "ENTREE")
+            entrees.push_back(i);
+        else if (menu[i].category == "SIDE")
+            sides.push_back(i);
+        else if (menu[i].category == "DRINK")
+            drinks.push_back(i);
+        else if (menu[i].category == "APPETIZER")
+            appetizers.push_back(i);
+        else if (menu[i].category == "EXTRA")
+            extras.push_back(i);
+        else if (menu[i].category == "CUB_MEAL")
+            cubMeals.push_back(i);
+    }
+
 
     // Simulation parameters
     double base_lambda_per_min = 0.2; // baseline orders per minute (adjust to scale)
@@ -145,23 +461,30 @@ int main(int argc, char** argv) {
     tm_now.tm_mday -= 1;
     mktime(&tm_now); // normalize
 
-    cout << "BEGIN;\n";
-
+    tm start_day = tm_now; //go from first day to now
+    start_day.tm_mday -= days - 1;
+    mktime(&start_day);
     // For each simulated day
     for (int d = 0; d < days; ++d) {
         // current day
-        tm day = tm_now;
-        day.tm_mday -= d;
+        tm day = start_day;
+        day.tm_mday += d;
         mktime(&day);
         int wday = day.tm_wday; // 0=Sun..6=Sat
         double weekly_mult = (wday == peak_day) ? peak_multiplier : other_day_multiplier;
+        //check for resock
 
+        restock_inventory(day, inventory, base_inventory, shipments, rng);
         // initialize OU log-noise for intensity per day
         double log_noise = 0.0;
 
         // per-minute loop
         vector<string> orders_batch;
-        orders_batch.reserve(10000);
+        vector<string> order_items_batch;
+
+        orders_batch.reserve(500);
+        order_items_batch.reserve(1000);
+
         for (int h = open_h; h < close_h; ++h) {
             for (int minute = 0; minute < 60; ++minute) {
                 // advance OU with dt=1 minute (t in minutes)
@@ -178,29 +501,86 @@ int main(int argc, char** argv) {
                 for (int a = 0; a < arrivals; ++a) {
                     // decide order time within the minute uniformly
                     int sec = uniform_int_distribution<int>(0,59)(rng);
-                    // create order items: number of distinct items ~ 1 + Poisson(0.5)
-                    int k = 1 + poisson_distribution<int>(0.5)(rng);
-                    // sample without replacement if possible
+                    // sample with replacement if possible
                     vector<int> chosen_idx;
-                    chosen_idx.reserve(k);
-                    // use discrete distribution on weights
-                    for (int ii = 0; ii < k; ++ii) {
-                        int idx = sample_index(rng, weights);
-                        chosen_idx.push_back(idx);
+
+                    // 8% chance of a Cub Meal
+                    bool cub_order =
+                        uniform_int_distribution<int>(1, 100)(rng) <= 8;
+
+                    if (cub_order && !cubMeals.empty()) {
+
+                        chosen_idx.push_back(
+                            sample_category(rng, cubMeals)
+                        );
+                    } 
+                    else {
+
+                        // SIDE
+                        if (uniform_int_distribution<int>(1, 100)(rng) <= 95) {
+                            int idx = sample_category(rng, sides);
+
+                            if (idx != -1)
+                                chosen_idx.push_back(idx);
+                        }
+                        // ENTREES
+
+                        int entreeRoll =
+                            uniform_int_distribution<int>(1, 100)(rng);
+
+                        int numEntrees;
+
+                        if (entreeRoll <= 45)
+                            numEntrees = 1;
+                        else if (entreeRoll <= 90)
+                            numEntrees = 2;
+                        else
+                            numEntrees = 3;
+
+                        for (int i = 0; i < numEntrees; ++i) {
+                            int idx = sample_category(rng, entrees);
+
+                            if (idx != -1)
+                                chosen_idx.push_back(idx);
+                        }
+                        // DRINK
+
+                        if (uniform_int_distribution<int>(1, 100)(rng) <= 40) {
+                            int idx = sample_category(rng, drinks);
+
+                            if (idx != -1)
+                                chosen_idx.push_back(idx);
+                        }
+                        // APPETIZER
+
+                        if (uniform_int_distribution<int>(1, 100)(rng) <= 12) {
+                            int idx = sample_category(rng, appetizers);
+
+                            if (idx != -1)
+                                chosen_idx.push_back(idx);
+                        }
+                        // EXTRA / DESSERT
+
+                        if (uniform_int_distribution<int>(1, 100)(rng) <= 7) {
+                            int idx = sample_category(rng, extras);
+
+                            if (idx != -1)
+                                chosen_idx.push_back(idx);
+                        }
                     }
-                    // quantities: small ints, biased to 1
-                    vector<int> qtys;
-                    for (int idx : chosen_idx) {
-                        int q = 1;
-                        int rprob = uniform_int_distribution<int>(0,99)(rng);
-                        if (rprob < 8) q = 2;
-                        else if (rprob < 2) q = 3;
-                        qtys.push_back(q);
+                    map<int, int> item_counts;
+
+                    for (int idx : chosen_idx) { // turns multiple orders of same entree into one menu item with quantity x
+                        item_counts[idx]++;
                     }
                     // compute order total with small per-order noise and occasional discounts
                     double total = 0.0;
-                    for (size_t z = 0; z < chosen_idx.size(); ++z) {
-                        total += menu[chosen_idx[z]].price * qtys[z];
+
+                    for (auto &entry : item_counts) {
+                        int idx = entry.first;
+                        int qty = entry.second;
+
+                        total += menu[idx].price * qty;
                     }
                     // apply small additive noise and occasional rounding / discount
                     normal_distribution<double> nd(0.0, 0.25);
@@ -227,12 +607,22 @@ int main(int argc, char** argv) {
                     // We'll collect them in a static vector printed after Orders to keep consistent IDs
                     // For simplicity, append to a global output stream below
                     // Create OrderItem inserts
-                    for (size_t z = 0; z < chosen_idx.size(); ++z) {
-                        int mid = menu[chosen_idx[z]].id;
-                        int q = qtys[z];
-                        // emit an OrderItem row immediately
-                        cout << "INSERT INTO OrderItem (OrderItemID, OrderID, MenuItemID, Qty) VALUES ("
-                             << order_item_id++ << "," << order_id << "," << mid << "," << q << ");\n";
+                    for (auto &entry : item_counts) {
+                        int idx = entry.first;
+                        int q = entry.second;
+
+                        int mid = menu[idx].id;
+
+                        consume_menu_item(mid, q, recipe_map, base_inventory, shipments);
+
+                        ostringstream oitem;
+                        oitem << "("
+                            << order_item_id++ << ","
+                            << order_id << ","
+                            << mid << ","
+                            << q << ")";
+
+                        order_items_batch.push_back(oitem.str());
                     }
 
                     order_id++;
@@ -240,22 +630,50 @@ int main(int argc, char** argv) {
                 // flush batches every so often
                 if (!orders_batch.empty() && orders_batch.size() >= 500) {
                     cout << "INSERT INTO Orders (OrderID, OrderDate, OrderTime, Total) VALUES\n";
+
                     for (size_t i = 0; i < orders_batch.size(); ++i) {
-                        cout << orders_batch[i] << (i+1<orders_batch.size() ? ",\n" : ";\n");
+                        cout << orders_batch[i]
+                            << (i + 1 < orders_batch.size() ? ",\n" : ";\n");
                     }
+
+                    cout << "INSERT INTO OrderItem "
+                            "(OrderItemID, OrderID, MenuItemID, Qty) VALUES\n";
+
+                    for (size_t i = 0; i < order_items_batch.size(); ++i) {
+                        cout << order_items_batch[i]
+                            << (i + 1 < order_items_batch.size() ? ",\n" : ";\n");
+                    }
+
                     orders_batch.clear();
+                    order_items_batch.clear();
                 }
             } // minutes
         } // hours
         // flush remaining orders for day
         if (!orders_batch.empty()) {
             cout << "INSERT INTO Orders (OrderID, OrderDate, OrderTime, Total) VALUES\n";
+
             for (size_t i = 0; i < orders_batch.size(); ++i) {
-                cout << orders_batch[i] << (i+1<orders_batch.size() ? ",\n" : ";\n");
+                cout << orders_batch[i]
+                    << (i + 1 < orders_batch.size() ? ",\n" : ";\n");
             }
+
+            cout << "INSERT INTO OrderItem "
+                    "(OrderItemID, OrderID, MenuItemID, Qty) VALUES\n";
+
+            for (size_t i = 0; i < order_items_batch.size(); ++i) {
+                cout << order_items_batch[i]
+                    << (i + 1 < order_items_batch.size() ? ",\n" : ";\n");
+            }
+
             orders_batch.clear();
+            order_items_batch.clear();
         }
     } // days
+
+    print_final_shipments(shipments);
+
+    print_final_inventory_updates(inventory, base_inventory, shipments);
 
     cout << "COMMIT;\n";
     return 0;

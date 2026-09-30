@@ -28,6 +28,14 @@ The orderItem is labeled by the OrderItem ID and contains the information for th
 ## Orders
 The order is pretty much the symphony of orderItems, where it contains the total price, along with all the orderItems in which is in the order. For the cashier, this table represents the final transaction created after the customer's items have been entered. For managers, it supports reports involving total sales, number of orders, revenue over a time period, and other sales trends.
 
-
+## Data Generation
+Run `g++ generate_base_data.cpp data_utils.cpp -o generate_base_data`\
+`g++ generate_base_data.cpp data_utils.cpp -o generate_base_data` \
+`g++ noise.cpp data_utils.cpp -o noise` \
+`./generate_base_data MenuItems.csv Inventory.csv Recipes.csv > generated_data` \
+`./noise MenuItems.csv Inventory.csv Recipes.csv 364 3 12345 >> generated_data` \
+`generate_base_data.cpp` loads `Inventory`, `MenuItem`, and `MenuItemInventory` \
+`noise.cpp` generates data for `Order`, `OrderItem`, and `InventoryItem` \
+You should then run `psql -h csce-315-db.engr.tamu.edu -p 5432 -U team3 -d team3db -v ON_ERROR_STOP=1 -f generated_data` to enter the data into the database
 
 
