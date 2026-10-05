@@ -243,11 +243,12 @@ public class CashierGUI {
   }
 
   void addItem(int id, String name, double price) {
-    if (!isAvailable(id)) {
+    Object[] line = orderLines.get(id);
+    int inCart = (line == null) ? 0 : (Integer) line[2];
+    if (!isAvailable(id, inCart+1)) {
       JOptionPane.showMessageDialog(frame, name + " is out of stock.");
       return;
     }
-    Object[] line = orderLines.get(id);
     if (line == null) orderLines.put(id, new Object[] {name, price, 1});
     else line[2] = (Integer) line[2] + 1;
     refreshTicket();
@@ -255,7 +256,7 @@ public class CashierGUI {
 
   // An item is available if it has no inventory mapping, or every mapped
   // ingredient still has stock (contract: check inventory before selling).
-  boolean isAvailable(int menuItemId) {
+  boolean isAvailable(int menuItemId, int qtyWanted) {
     try {
       PreparedStatement ps = conn.prepareStatement(
         "SELECT COUNT(*) AS needed, " +
@@ -264,12 +265,11 @@ public class CashierGUI {
         "JOIN Inventory i ON i.InventoryID = mii.InventoryID " +
         "WHERE mii.MenuItemID = ?");
       ps.setInt(1, menuItemId);
-      ResultSet rs = ps.executeQuery();
-      rs.next();
-      boolean ok = rs.getInt("needed") == 0 ||
-                   rs.getInt("needed") == rs.getInt("stocked");
-      rs.close(); ps.close();
-      return ok;
+      ps.setInt(2, qtyWanted);
+      try (ResultSet rs = ps.executeQuery()) { 
+        rs.next();
+        return rs.getBoolean("ok");
+      }
     } catch (SQLException ex) {
       return true; // don't block sales on a lookup failure
     }
@@ -345,6 +345,17 @@ public class CashierGUI {
         decInv.setInt(1, qty);
         decInv.setInt(2, menuItemId);
         decInv.executeUpdate();
+      }
+
+      try (Statement chk = conn.createStatement();
+        ResultSet neg = chk.executeQuery(
+        "SELECT InventoryName FROM Inventory WHERE Quantity < 0")) {
+        if (neg.next()) {
+          conn.rollback();
+          JOptionPane.showMessageDialog(frame,
+            "Not enough " + neg.getString(1) + " to complete this order.");
+          return;
+        }
       }
 
       conn.commit();
