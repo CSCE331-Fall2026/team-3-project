@@ -12,7 +12,7 @@ import java.util.Map;
  * Cashier GUI for team 3 project (Panda Express style POS).
  *
  * Layout follows the cashier GUI sketch:
- *   - Top nav bar:  MENU | INV. | REP. | CLK IN/OUT  (INV./REP. are manager only)
+ *   - Top nav bar:  MENU | INV. | REP.  (INV./REP. are manager only)
  *   - Left:  category buttons (Sides, Entrees, Appetizers, Cub Meals, Drinks, Extras)
  *            whose item buttons are pulled live from the MenuItem table.
  *   - Right: running order ticket (qty, name, price), Subtotal / Tax / Total,
@@ -47,11 +47,10 @@ public class CashierGUI {
   JFrame frame;
   JPanel itemsPanel;
   DefaultListModel<String> ticketModel;
-  JLabel headerTotal, subtotalLabel, taxLabel, totalLabel, clockLabel;
+  JLabel headerTotal, subtotalLabel, taxLabel, totalLabel;
 
   // MenuItemID -> [name, price, qty]
   LinkedHashMap<Integer, Object[]> orderLines = new LinkedHashMap<Integer, Object[]>();
-  boolean clockedIn = false;
 
   public static void main(String args[]) {
     openConnection(new dbSetup());
@@ -93,13 +92,12 @@ public class CashierGUI {
     showCategory("Sides");
   }
 
-  // ---- Top nav bar: MENU | INV. | REP. | CLK IN/OUT ----
+  // ---- Top nav bar: MENU | INV. | REP. ----
   JPanel buildNavBar() {
-    JPanel nav = new JPanel(new GridLayout(1, 4, 3, 3));
+    JPanel nav = new JPanel(new GridLayout(1, 3, 3, 3));
     JButton menu = navButton("MENU", true);
     JButton inv  = navButton("INV.", false);
     JButton rep  = navButton("REP.", false);
-    JButton clk  = navButton("CLK IN/OUT", false);
 
     inv.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
@@ -111,14 +109,8 @@ public class CashierGUI {
         JOptionPane.showMessageDialog(frame, "Reports view is manager only.");
       }
     });
-    clk.addActionListener(new ActionListener() {
-      public void actionPerformed(ActionEvent e) {
-        clockedIn = !clockedIn;
-        clockLabel.setText(clockedIn ? "Clocked in" : "Clocked out");
-      }
-    });
 
-    nav.add(menu); nav.add(inv); nav.add(rep); nav.add(clk);
+    nav.add(menu); nav.add(inv); nav.add(rep);
     return nav;
   }
 
@@ -223,15 +215,13 @@ public class CashierGUI {
       }
     });
 
-    JPanel sums = new JPanel(new GridLayout(4, 1));
+    JPanel sums = new JPanel(new GridLayout(3, 1));
     sums.setOpaque(false);
     subtotalLabel = new JLabel("Subtotal: $0.00");
     taxLabel      = new JLabel("Tax: $0.00");
     totalLabel    = new JLabel("Total: $0.00");
-    clockLabel    = new JLabel("Clocked out");
     totalLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
-    sums.add(subtotalLabel); sums.add(taxLabel);
-    sums.add(totalLabel);    sums.add(clockLabel);
+    sums.add(subtotalLabel); sums.add(taxLabel); sums.add(totalLabel);
 
     JButton checkout = new JButton("Checkout");
     checkout.setAlignmentX(Component.CENTER_ALIGNMENT);
