@@ -54,7 +54,6 @@ public class InventoryDAO {
     return items;
   }
 
-  // InventoryID -> new quantity. All or nothing.
   public void updateQuantities(Map<Integer, Double> changes) throws SQLException {
     if (changes.isEmpty()) return;
     try {
