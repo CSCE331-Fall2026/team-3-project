@@ -3,5 +3,8 @@ generated_base_data
 jdbc_swing_demo/dbSetup.java
 jdbc_swing_demo/dbSetup.class
 *.class
+<<<<<<< HEAD
 jdbc_swing_demo/*.class
 generated_data.sql
+=======
+>>>>>>> refs/remotes/origin/javaStuffAndThings
