@@ -1,6 +1,8 @@
 import java.sql.*;
 import javax.swing.*;
+import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
@@ -24,14 +26,14 @@ import java.util.Map;
  *   3. UPDATE Inventory ... FROM MenuItemInventory to decrement stock used
  * Items with a MenuItemInventory mapping are checked for availability before
  * they can be added to the ticket.
+ *
+ * Styling comes from PandaTheme so the cashier side matches ManagerGUI.
  */
 public class CashierGUI {
 
   static Connection conn = null;
 
   static final double TAX_RATE = 0.0825;
-  static final Color RED = new Color(0xC8, 0x3A, 0x2E);
-  static final Color GREY = new Color(0xC7, 0xCE, 0xD6);
 
   // category name -> [min MenuItemID, max MenuItemID] in the MenuItem table
   static final LinkedHashMap<String, int[]> CATEGORIES = new LinkedHashMap<String, int[]>();
@@ -39,13 +41,14 @@ public class CashierGUI {
     CATEGORIES.put("Sides",      new int[] {1, 5});
     CATEGORIES.put("Entrees",    new int[] {6, 25});
     CATEGORIES.put("Appetizers", new int[] {26, 29});
-    CATEGORIES.put("Cub Meals",  new int[] {30, 32});
+    CATEGORIES.put("Meals",  new int[] {30, 32});
     CATEGORIES.put("Extras",     new int[] {33, 43});
     CATEGORIES.put("Drinks",     new int[] {44, 154});
   }
 
   JFrame frame;
   JPanel itemsPanel;
+  LinkedHashMap<String, JButton> catButtons = new LinkedHashMap<String, JButton>();
   DefaultListModel<String> ticketModel;
   JLabel headerTotal, subtotalLabel, taxLabel, totalLabel;
 
@@ -54,6 +57,7 @@ public class CashierGUI {
 
   public static void main(String args[]) {
     openConnection(new dbSetup());
+    PandaTheme.useSystemLook();
     SwingUtilities.invokeLater(new Runnable() {
       public void run() { new CashierGUI().build(); }
     });
@@ -76,16 +80,21 @@ public class CashierGUI {
   }
 
   void build() {
-    frame = new JFrame("Cashier GUI");
+    frame = new JFrame("Panda Express - Cashier");
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     frame.setSize(1100, 650);
     frame.setLocationRelativeTo(null);
 
-    JPanel root = new JPanel(new BorderLayout(5, 5));
-    root.setBorder(new EmptyBorder(5, 5, 5, 5));
+    JPanel root = new JPanel(new BorderLayout());
+    root.setBackground(PandaTheme.WHITE);
     root.add(buildNavBar(), BorderLayout.NORTH);
-    root.add(buildMenuArea(), BorderLayout.CENTER);
-    root.add(buildTicket(), BorderLayout.EAST);
+
+    JPanel content = new JPanel(new BorderLayout(12, 0));
+    content.setOpaque(false);
+    content.setBorder(new EmptyBorder(16, 20, 16, 20));
+    content.add(buildMenuArea(), BorderLayout.CENTER);
+    content.add(buildTicket(), BorderLayout.EAST);
+    root.add(content, BorderLayout.CENTER);
 
     frame.add(root);
     frame.setVisible(true);
@@ -94,10 +103,18 @@ public class CashierGUI {
 
   // ---- Top nav bar: MENU | INV. | REP. ----
   JPanel buildNavBar() {
-    JPanel nav = new JPanel(new GridLayout(1, 3, 3, 3));
-    JButton menu = navButton("MENU", true);
-    JButton inv  = navButton("INV.", false);
-    JButton rep  = navButton("REP.", false);
+    JPanel nav = new JPanel(new BorderLayout());
+    nav.setBackground(PandaTheme.GREY);
+
+    JPanel tabs = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+    tabs.setOpaque(false);
+
+    JButton menu = PandaTheme.primaryButton("MENU");
+    menu.setBorder(new EmptyBorder(10, 22, 10, 22));
+    JButton inv = PandaTheme.secondaryButton("INV.");
+    inv.setBorder(new EmptyBorder(10, 22, 10, 22));
+    JButton rep = PandaTheme.secondaryButton("REP.");
+    rep.setBorder(new EmptyBorder(10, 22, 10, 22));
 
     inv.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
@@ -110,36 +127,32 @@ public class CashierGUI {
       }
     });
 
-    nav.add(menu); nav.add(inv); nav.add(rep);
+    tabs.add(menu); tabs.add(inv); tabs.add(rep);
+    nav.add(tabs, BorderLayout.WEST);
     return nav;
-  }
-
-  JButton navButton(String text, boolean active) {
-    JButton b = new JButton(text);
-    b.setFont(new Font("SansSerif", Font.BOLD, 18));
-    b.setBackground(active ? RED : GREY);
-    b.setForeground(active ? Color.WHITE : Color.BLACK);
-    b.setOpaque(true);
-    b.setBorderPainted(false);
-    return b;
   }
 
   // ---- Left: category row + scrollable grid of item buttons ----
   JPanel buildMenuArea() {
-    JPanel area = new JPanel(new BorderLayout(5, 5));
+    JPanel area = new JPanel(new BorderLayout(0, 12));
+    area.setOpaque(false);
 
-    JPanel cats = new JPanel(new GridLayout(1, CATEGORIES.size(), 3, 3));
-    for (String cat : CATEGORIES.keySet()) {
-      JButton b = new JButton(cat);
-      b.setFont(new Font("SansSerif", Font.BOLD, 14));
+    JPanel cats = new JPanel(new GridLayout(1, CATEGORIES.size(), 6, 0));
+    cats.setOpaque(false);
+    for (final String cat : CATEGORIES.keySet()) {
+      JButton b = PandaTheme.secondaryButton(cat);
       b.addActionListener(new ActionListener() {
         public void actionPerformed(ActionEvent e) { showCategory(cat); }
       });
+      catButtons.put(cat, b);
       cats.add(b);
     }
 
-    itemsPanel = new JPanel(new GridLayout(0, 4, 5, 5));
+    itemsPanel = new JPanel(new GridLayout(0, 4, 8, 8));
+    itemsPanel.setBackground(PandaTheme.WHITE);
     JScrollPane scroll = new JScrollPane(itemsPanel);
+    scroll.setBorder(new LineBorder(PandaTheme.GRID, 1));
+    scroll.getViewport().setBackground(PandaTheme.WHITE);
     scroll.getVerticalScrollBar().setUnitIncrement(16);
 
     area.add(cats, BorderLayout.NORTH);
@@ -148,6 +161,15 @@ public class CashierGUI {
   }
 
   void showCategory(String category) {
+    for (String c : catButtons.keySet()) {
+      if (c.equals(category)) {
+        PandaTheme.setBase(catButtons.get(c),
+          PandaTheme.RED, PandaTheme.WHITE, PandaTheme.RED_DARK);
+      } else {
+        PandaTheme.setBase(catButtons.get(c),
+          PandaTheme.GREY, PandaTheme.BLACK, PandaTheme.GREY_DARK);
+      }
+    }
     itemsPanel.removeAll();
     int[] range = CATEGORIES.get(category);
     try {
@@ -161,11 +183,10 @@ public class CashierGUI {
         final int id = rs.getInt("MenuItemID");
         final String name = rs.getString("MenuItemName");
         final double price = rs.getDouble("Price");
-        JButton b = new JButton("<html><center>" + name + "<br>$" +
+        JButton b = PandaTheme.secondaryButton("<html><center>" + name + "<br>$" +
           String.format("%.2f", price) + "</center></html>");
-        b.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        b.setBackground(GREY);
-        b.setOpaque(true);
+        b.setFont(PandaTheme.SMALL);
+        b.setBorder(new EmptyBorder(4, 6, 4, 6));
         b.setPreferredSize(new Dimension(150, 70));
         b.addActionListener(new ActionListener() {
           public void actionPerformed(ActionEvent e) { addItem(id, name, price); }
@@ -182,25 +203,28 @@ public class CashierGUI {
 
   // ---- Right: order ticket ----
   JPanel buildTicket() {
-    JPanel ticket = new JPanel(new BorderLayout(5, 5));
+    JPanel ticket = new JPanel(new BorderLayout(0, 12));
     ticket.setPreferredSize(new Dimension(280, 0));
-    ticket.setBackground(GREY);
-    ticket.setBorder(new EmptyBorder(5, 5, 5, 5));
+    ticket.setBackground(PandaTheme.GREY_LIGHT);
+    ticket.setBorder(new CompoundBorder(new LineBorder(PandaTheme.GRID, 1),
+      new EmptyBorder(12, 12, 12, 12)));
 
-    headerTotal = new JLabel("Total: $0.00");
-    headerTotal.setFont(new Font("SansSerif", Font.BOLD, 20));
+    headerTotal = PandaTheme.label("Total: $0.00", PandaTheme.HEADING, PandaTheme.BLACK);
     ticket.add(headerTotal, BorderLayout.NORTH);
 
     ticketModel = new DefaultListModel<String>();
     JList<String> list = new JList<String>(ticketModel);
     list.setFont(new Font("Monospaced", Font.PLAIN, 13));
-    ticket.add(new JScrollPane(list), BorderLayout.CENTER);
+    list.setBackground(PandaTheme.WHITE);
+    JScrollPane listScroll = new JScrollPane(list);
+    listScroll.setBorder(new LineBorder(PandaTheme.GRID, 1));
+    ticket.add(listScroll, BorderLayout.CENTER);
 
     JPanel bottom = new JPanel();
     bottom.setLayout(new BoxLayout(bottom, BoxLayout.Y_AXIS));
     bottom.setOpaque(false);
 
-    JButton remove = new JButton("Remove Selected");
+    JButton remove = PandaTheme.secondaryButton("Remove Selected");
     remove.setAlignmentX(Component.CENTER_ALIGNMENT);
     remove.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
@@ -217,38 +241,34 @@ public class CashierGUI {
 
     JPanel sums = new JPanel(new GridLayout(3, 1));
     sums.setOpaque(false);
-    subtotalLabel = new JLabel("Subtotal: $0.00");
-    taxLabel      = new JLabel("Tax: $0.00");
-    totalLabel    = new JLabel("Total: $0.00");
-    totalLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
+    subtotalLabel = PandaTheme.label("Subtotal: $0.00", PandaTheme.BODY, PandaTheme.BLACK);
+    taxLabel      = PandaTheme.label("Tax: $0.00", PandaTheme.BODY, PandaTheme.BLACK);
+    totalLabel    = PandaTheme.label("Total: $0.00",
+      new Font(PandaTheme.FONT, Font.BOLD, 16), PandaTheme.BLACK);
     sums.add(subtotalLabel); sums.add(taxLabel); sums.add(totalLabel);
 
-    JButton checkout = new JButton("Checkout");
+    JButton checkout = PandaTheme.primaryButton("Checkout");
     checkout.setAlignmentX(Component.CENTER_ALIGNMENT);
-    checkout.setFont(new Font("SansSerif", Font.BOLD, 18));
-    checkout.setBackground(RED);
-    checkout.setForeground(Color.WHITE);
-    checkout.setOpaque(true);
+    checkout.setFont(PandaTheme.HEADING);
     checkout.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) { checkout(); }
     });
 
     bottom.add(remove);
-    bottom.add(Box.createVerticalStrut(5));
+    bottom.add(Box.createVerticalStrut(8));
     bottom.add(sums);
-    bottom.add(Box.createVerticalStrut(5));
+    bottom.add(Box.createVerticalStrut(8));
     bottom.add(checkout);
     ticket.add(bottom, BorderLayout.SOUTH);
     return ticket;
   }
 
   void addItem(int id, String name, double price) {
-    Object[] line = orderLines.get(id);
-    int inCart = (line == null) ? 0 : (Integer) line[2];
-    if (!isAvailable(id, inCart+1)) {
+    if (!isAvailable(id)) {
       JOptionPane.showMessageDialog(frame, name + " is out of stock.");
       return;
     }
+    Object[] line = orderLines.get(id);
     if (line == null) orderLines.put(id, new Object[] {name, price, 1});
     else line[2] = (Integer) line[2] + 1;
     refreshTicket();
@@ -256,7 +276,7 @@ public class CashierGUI {
 
   // An item is available if it has no inventory mapping, or every mapped
   // ingredient still has stock (contract: check inventory before selling).
-  boolean isAvailable(int menuItemId, int qtyWanted) {
+  boolean isAvailable(int menuItemId) {
     try {
       PreparedStatement ps = conn.prepareStatement(
         "SELECT COUNT(*) AS needed, " +
@@ -265,11 +285,12 @@ public class CashierGUI {
         "JOIN Inventory i ON i.InventoryID = mii.InventoryID " +
         "WHERE mii.MenuItemID = ?");
       ps.setInt(1, menuItemId);
-      ps.setInt(2, qtyWanted);
-      try (ResultSet rs = ps.executeQuery()) { 
-        rs.next();
-        return rs.getBoolean("ok");
-      }
+      ResultSet rs = ps.executeQuery();
+      rs.next();
+      boolean ok = rs.getInt("needed") == 0 ||
+                   rs.getInt("needed") == rs.getInt("stocked");
+      rs.close(); ps.close();
+      return ok;
     } catch (SQLException ex) {
       return true; // don't block sales on a lookup failure
     }
@@ -345,17 +366,6 @@ public class CashierGUI {
         decInv.setInt(1, qty);
         decInv.setInt(2, menuItemId);
         decInv.executeUpdate();
-      }
-
-      try (Statement chk = conn.createStatement();
-        ResultSet neg = chk.executeQuery(
-        "SELECT ItemName FROM Inventory WHERE Quantity < 0")) {
-        if (neg.next()) {
-          conn.rollback();
-          JOptionPane.showMessageDialog(frame,
-            "Not enough " + neg.getString(1) + " to complete this order.");
-          return;
-        }
       }
 
       conn.commit();
