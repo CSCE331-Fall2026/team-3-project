@@ -349,7 +349,7 @@ public class CashierGUI {
 
       try (Statement chk = conn.createStatement();
         ResultSet neg = chk.executeQuery(
-        "SELECT InventoryName FROM Inventory WHERE Quantity < 0")) {
+        "SELECT ItemName FROM Inventory WHERE Quantity < 0")) {
         if (neg.next()) {
           conn.rollback();
           JOptionPane.showMessageDialog(frame,

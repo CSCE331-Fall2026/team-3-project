@@ -2,3 +2,6 @@ generated_data
 generated_base_data
 jdbc_swing_demo/dbSetup.java
 jdbc_swing_demo/dbSetup.class
+*.class
+jdbc_swing_demo/*.class
+generated_data.sql
