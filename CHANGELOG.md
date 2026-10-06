@@ -15,7 +15,7 @@ While building the data generator, we found that the Phase 1 could not represent
 ### Changed
 - **`INVENTORYITEM.ShipmentID`**: int → bigint, to allow for a larger history.
 - **`INVENTORYITEM.Quantity`**: int → decimal, since shipments arrive in fractions.
-- **`INVENTORY.Minimum_Threshold`** → **`MinimumThreshold`**: changed to decimal to match `Quantity`.
+- **`INVENTORY.Minimum_Threshold`** → **`Minimum_Threshold`**: changed to decimal to match `Quantity`.
 - **`INVENTORY.Quantity`**: int → decimal, since stock is fractional and comes from shipments.
 - **`MENUITEMINVENTORY.QuantityRequired`**: int → decimal, since recipes use fractional amounts.
 - **`ORDERITEM.Qty`**: default removed so quantity is always written.
