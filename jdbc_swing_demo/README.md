@@ -28,4 +28,3 @@ replace the `;` with a `:`):
 > javac -cp ".;postgresql-42.2.8.jar" dbSetup.java CashierGUI.java
 
 > java -cp ".;postgresql-42.2.8.jar" CashierGUI
-

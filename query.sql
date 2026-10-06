@@ -89,4 +89,3 @@ SELECT p.p_code, p.p_descript, v.v_name, p.p_price, va.avg_price
     JOIN vendor_avg_price va ON va.v_code = v.v_code 
     WHERE p.p_price > va.avg_price 
     ORDER BY v.v_name;
-
