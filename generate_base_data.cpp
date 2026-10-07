@@ -19,6 +19,18 @@ int main(int argc, char **argv) {
     vector<InventoryItem> inventory = load_inventory(inventory_path);
 
     vector<MenuItem> menu = load_menu(menu_path);
+    map<string, int> menu_name_to_id;
+    map<string, int> inventory_name_to_id;
+
+    for (const auto &item : menu) {
+        menu_name_to_id[item.name] = item.id;
+    }
+
+    for (const auto &item : inventory) {
+        inventory_name_to_id[item.name] = item.id;
+    }
+    vector<MenuItemInventoryRow> recipes = load_recipes(argv[3], menu_name_to_id, inventory_name_to_id);
+
     // CREATE TABLES
     cout << "CREATE TABLE Inventory ("
             "InventoryID INT PRIMARY KEY,"
@@ -45,7 +57,6 @@ int main(int argc, char **argv) {
             "Category VARCHAR(20) NOT NULL,"
             "MenuItemName VARCHAR(150) NOT NULL,"
             "Price DECIMAL(10,2) NOT NULL,"
-            "Category VARCHAR(30) NOT NULL,"
             "Active BOOLEAN NOT NULL DEFAULT TRUE"
             ");\n\n";
 
@@ -78,7 +89,7 @@ int main(int argc, char **argv) {
     // INVENTORY
 
     cout << "INSERT INTO Inventory "
-            "(InventoryID, ItemName, Unit, Minimum_Threshold, Quantity, ShelfLifeDays) VALUES\n";
+            "(InventoryID, ItemName, Unit, Minimum_Threshold, Quantity, ShelfLifeDays, Active) VALUES\n";
 
     for (size_t i = 0; i < inventory.size(); ++i) {
         cout << "("
@@ -88,7 +99,7 @@ int main(int argc, char **argv) {
             << inventory[i].minimum_threshold << ","
             << inventory[i].quantity << ","
             << inventory[i].shelf_life
-            << ")";
+            << ",TRUE)";
 
         if (i + 1 < inventory.size())
             cout << ",\n";
@@ -120,20 +131,10 @@ int main(int argc, char **argv) {
             cout << ";\n";
     }
 
-    map<string, int> menu_name_to_id;
-    map<string, int> inventory_name_to_id;
-
-    for (const auto &item : menu) {
-        menu_name_to_id[item.name] = item.id;
+    if (!recipes.empty()) {
+        cout << "INSERT INTO MenuItemInventory "
+                "(MenuItemID, InventoryID, QuantityRequired) VALUES\n";
     }
-
-    for (const auto &item : inventory) {
-        inventory_name_to_id[item.name] = item.id;
-    }
-    vector<MenuItemInventoryRow> recipes = load_recipes(argv[3], menu_name_to_id, inventory_name_to_id);
-
-    cout << "INSERT INTO MenuItemInventory "
-            "(MenuItemID, InventoryID, QuantityRequired) VALUES\n";
 
     for (size_t i = 0; i < recipes.size(); ++i) {
         cout << "("
