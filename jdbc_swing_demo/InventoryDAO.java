@@ -52,7 +52,9 @@ public class InventoryDAO {
     Statement st = conn.createStatement();
     ResultSet rs = st.executeQuery(
       "SELECT InventoryID, ItemName, Unit, " + THRESHOLD_COL + ", Quantity, ShelfLifeDays " +
-      "FROM Inventory ORDER BY ItemName");
+      "FROM Inventory " +
+      "WHERE Active = TRUE " +
+      "ORDER BY ItemName");
     while (rs.next()) {
       Item it = new Item();
       it.id = rs.getInt("InventoryID");
@@ -137,35 +139,93 @@ public int insertMenuItem(String name, String category, double price,
   }
 
   // Returns the new InventoryID.
-  public int insertItem(String name, String unit, double threshold,
-                        double quantity, int shelfLifeDays) throws SQLException {
+  public int insertMenuItem(String name, double price, String category)
+    throws SQLException {
+
     try {
       conn.setAutoCommit(false);
-      Statement st = conn.createStatement();
-      ResultSet rs = st.executeQuery(
-        "SELECT COALESCE(MAX(InventoryID), 0) + 1 AS nextId FROM Inventory");
-      rs.next();
-      int id = rs.getInt("nextId");
-      rs.close(); st.close();
 
-      PreparedStatement ps = conn.prepareStatement(
-        "INSERT INTO Inventory (InventoryID, ItemName, Unit, " + THRESHOLD_COL +
-        ", Quantity, ShelfLifeDays) VALUES (?, ?, ?, ?, ?, ?)");
-      ps.setInt(1, id);
-      ps.setString(2, name);
-      ps.setString(3, unit);
-      ps.setDouble(4, threshold);
-      ps.setDouble(5, quantity);
-      ps.setInt(6, shelfLifeDays);
-      ps.executeUpdate();
-      ps.close();
+      // Check whether item already exists
+      PreparedStatement check = conn.prepareStatement(
+        "SELECT MenuItemID, Active FROM MenuItem " +
+        "WHERE LOWER(MenuItemName) = LOWER(?)"
+      );
+
+      check.setString(1, name);
+      ResultSet rs = check.executeQuery();
+
+      if (rs.next()) {
+        int id = rs.getInt("MenuItemID");
+        boolean active = rs.getBoolean("Active");
+
+        rs.close();
+        check.close();
+
+        if (active) {
+          throw new SQLException(
+            "An active menu item named \"" + name + "\" already exists."
+          );
+        }
+
+        // Reactivate discontinued item
+        PreparedStatement reactivate = conn.prepareStatement(
+          "UPDATE MenuItem " +
+          "SET Price = ?, Category = ?, Active = TRUE " +
+          "WHERE MenuItemID = ?"
+        );
+
+        reactivate.setDouble(1, price);
+        reactivate.setString(2, category);
+        reactivate.setInt(3, id);
+
+        reactivate.executeUpdate();
+        reactivate.close();
+
+        conn.commit();
+        return id;
+      }
+
+      rs.close();
+      check.close();
+
+      // New menu item
+      Statement st = conn.createStatement();
+      ResultSet next = st.executeQuery(
+        "SELECT COALESCE(MAX(MenuItemID), 0) + 1 AS nextId FROM MenuItem"
+      );
+
+      next.next();
+      int id = next.getInt("nextId");
+
+      next.close();
+      st.close();
+
+      PreparedStatement insert = conn.prepareStatement(
+        "INSERT INTO MenuItem " +
+        "(MenuItemID, MenuItemName, Price, Category, Active) " +
+        "VALUES (?, ?, ?, ?, TRUE)"
+      );
+
+      insert.setInt(1, id);
+      insert.setString(2, name);
+      insert.setDouble(3, price);
+      insert.setString(4, category);
+
+      insert.executeUpdate();
+      insert.close();
+
       conn.commit();
       return id;
+
     } catch (SQLException ex) {
-      try { conn.rollback(); } catch (SQLException ignored) {}
+      try { conn.rollback(); }
+      catch (SQLException ignored) {}
+
       throw ex;
+
     } finally {
-      try { conn.setAutoCommit(true); } catch (SQLException ignored) {}
+      try { conn.setAutoCommit(true); }
+      catch (SQLException ignored) {}
     }
   }
 
@@ -173,7 +233,7 @@ public int insertMenuItem(String name, String category, double price,
     List<MenuItem> items = new ArrayList<MenuItem>();
     Statement st = conn.createStatement();
     ResultSet rs = st.executeQuery(
-      "SELECT MenuItemID, MenuItemName, Price FROM MenuItem ORDER BY MenuItemID");
+      "SELECT MenuItemID, MenuItemName, Price FROM MenuItem WHERE Active = TRUE ORDER BY MenuItemID");
     while (rs.next()) {
       MenuItem it = new MenuItem();
       it.id = rs.getInt("MenuItemID");
@@ -206,4 +266,40 @@ public int insertMenuItem(String name, String category, double price,
       try { conn.setAutoCommit(true); } catch (SQLException ignored) {}
     }
   }
+  
+  public void discontinueMenuItem(int menuItemId) throws SQLException {
+    PreparedStatement ps = conn.prepareStatement(
+      "UPDATE MenuItem SET Active = FALSE WHERE MenuItemID = ?"
+    );
+
+    ps.setInt(1, menuItemId);
+
+    int rowsUpdated = ps.executeUpdate();
+    ps.close();
+
+    if (rowsUpdated == 0) {
+      throw new SQLException(
+        "No menu item found with ID " + menuItemId
+      );
+    }
+  }
+
+  public void discontinueInventoryItem(int inventoryId) throws SQLException {
+    PreparedStatement ps = conn.prepareStatement(
+      "UPDATE Inventory SET Active = FALSE WHERE InventoryID = ?"
+    );
+
+    ps.setInt(1, inventoryId);
+
+    int rowsUpdated = ps.executeUpdate();
+    ps.close();
+
+    if (rowsUpdated == 0) {
+      throw new SQLException(
+        "No inventory item found with ID " + inventoryId
+      );
+    }
+  }
 }
+
+

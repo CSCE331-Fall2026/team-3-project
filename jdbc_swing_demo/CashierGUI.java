@@ -46,6 +46,7 @@ public class CashierGUI {
 
   // category name -> [min MenuItemID, max MenuItemID] in the MenuItem table
   static final String[] CATEGORIES = {"Sides", "Entrees", "Appetizers", "Meals", "Extras", "Drinks"};
+  static final String[] CATEGORIES = {"Sides", "Entrees", "Appetizers", "Meals", "Extras", "Drinks"};
 
   JFrame frame;
   JPanel itemsPanel;
@@ -172,7 +173,9 @@ public class CashierGUI {
     area.setOpaque(false);
 
     JPanel cats = new JPanel(new GridLayout(1, CATEGORIES.length, 6, 0));
+    JPanel cats = new JPanel(new GridLayout(1, CATEGORIES.length, 6, 0));
     cats.setOpaque(false);
+    for (final String cat : CATEGORIES) {
     for (final String cat : CATEGORIES) {
       JButton b = PandaTheme.secondaryButton(cat);
       b.addActionListener(new ActionListener() {
@@ -208,14 +211,18 @@ public class CashierGUI {
     try {
       PreparedStatement ps = conn.prepareStatement(
         "SELECT MenuItemID, MenuItemName, Price FROM MenuItem " +
-        "WHERE Category = ? ORDER BY MenuItemName");
+        "WHERE Category = ? " +
+        "AND Active = TRUE " +
+        "ORDER BY MenuItemID"
+      );
+
       ps.setString(1, category);
-      try (ResultSet rs = ps.executeQuery()) {
-        while (rs.next()) {
-          items.add(new Object[] {rs.getInt("MenuItemID"),
-            rs.getString("MenuItemName"), rs.getDouble("Price")});
-        }
+      ResultSet rs = ps.executeQuery();
+      while (rs.next()) {
+        items.add(new Object[] {rs.getInt("MenuItemID"),
+          rs.getString("MenuItemName"), rs.getDouble("Price")});
       }
+      rs.close(); ps.close();
     } catch (SQLException ex) {
         JOptionPane.showMessageDialog(frame, "Error loading menu: " + ex.getMessage());
     }
@@ -408,12 +415,15 @@ public class CashierGUI {
   boolean isAvailable(int menuItemId, int qtyWanted) {
     try {
       PreparedStatement ps = conn.prepareStatement(
-      "SELECT NOT EXISTS (" +
-      "  SELECT 1 FROM MenuItemInventory mii " +
-      "  JOIN Inventory i ON i.InventoryID = mii.InventoryID " +
-      "  WHERE mii.MenuItemID = ? " +
-      "    AND i.Quantity < mii.QuantityRequired * ?" +
-      ") AS ok");
+          "SELECT NOT EXISTS (" +
+          "  SELECT 1 FROM MenuItemInventory mii " +
+          "  JOIN Inventory i ON i.InventoryID = mii.InventoryID " +
+          "  WHERE mii.MenuItemID = ? " +
+          "  AND (i.Active = FALSE " +
+          "       OR i.Quantity < mii.QuantityRequired * ?)" +
+          ") AS ok"
+      );
+
       ps.setInt(1, menuItemId);
       ps.setInt(2, qtyWanted);
       try (ResultSet rs = ps.executeQuery()){
@@ -421,8 +431,14 @@ public class CashierGUI {
         return rs.getBoolean("ok");
       }
     } catch (SQLException ex) {
-      return true; // don't block sales on a lookup failure
-    }
+        JOptionPane.showMessageDialog(
+          frame,
+          "Could not check inventory availability:\n" + ex.getMessage(),
+          "Database Error",
+          JOptionPane.ERROR_MESSAGE
+        );
+        return false;
+      }
   }
 
   double subtotal() {
@@ -483,7 +499,9 @@ public class CashierGUI {
       PreparedStatement decInv = conn.prepareStatement(
         "UPDATE Inventory i SET Quantity = i.Quantity - mii.QuantityRequired * ? " +
         "FROM MenuItemInventory mii " +
-        "WHERE mii.MenuItemID = ? AND i.InventoryID = mii.InventoryID");
+        "WHERE mii.MenuItemID = ? " +
+        "AND i.InventoryID = mii.InventoryID " +
+        "AND i.Active = TRUE");
       for (Map.Entry<Integer, Object[]> e : orderLines.entrySet()) {
         int menuItemId = e.getKey();
         int qty = (Integer) e.getValue()[2];

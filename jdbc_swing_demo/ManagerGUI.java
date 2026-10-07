@@ -187,22 +187,121 @@ public class ManagerGUI {
           "Save Prices", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION;
       }
     };
+    JButton remove = PandaTheme.secondaryButton("Discontinue Item");
+
+    remove.addActionListener(new ActionListener() {
+      public void actionPerformed(ActionEvent e) {
+        removeSelectedMenuItem();
+      }
+    });
+    JButton add = PandaTheme.secondaryButton("+ Add Item");
+
+    add.addActionListener(new ActionListener() {
+      public void actionPerformed(ActionEvent e) {
+        new AddMenuItem(frame, dao, new Runnable() {
+          public void run() {
+            menu.reload();
+          }
+        }).setVisible(true);
+      }
+    });
+
+    menu.topButtons.add(remove);
+    menu.topButtons.add(add);
+
     return menu.panel;
   }
 
-  // Visual only for now
-  void removeSelected() {
-    inventory.stopEditing();
-    int row = inventory.table.getSelectedRow();
-    if (row < 0) {
-      JOptionPane.showMessageDialog(frame, "Select an item in the table to remove.");
+  // Discontinue selected menu item
+  void removeSelectedMenuItem() {
+    menu.stopEditing();
+
+    int selectedRow = menu.table.getSelectedRow();
+
+    if (selectedRow < 0) {
+      JOptionPane.showMessageDialog(
+        frame,
+        "Select a menu item to discontinue."
+      );
       return;
     }
-    String name = (String) inventory.model.getValueAt(row, 0);
-    if (JOptionPane.showConfirmDialog(frame, "Remove \"" + name + "\" from inventory?",
-        "Remove Item", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
-      JOptionPane.showMessageDialog(frame,
-        "Removing items isn't connected to the database yet.");
+
+    int row = menu.table.convertRowIndexToModel(selectedRow);
+
+    InventoryDAO.MenuItem item = menu.model.items.get(row);
+
+    if (JOptionPane.showConfirmDialog(
+        frame,
+        "Discontinue \"" + item.name + "\"?",
+        "Discontinue Menu Item",
+        JOptionPane.YES_NO_OPTION
+        ) != JOptionPane.YES_OPTION) {
+      return;
+    }
+
+    try {
+      dao.discontinueMenuItem(item.id);
+
+      menu.reload();
+
+      JOptionPane.showMessageDialog(
+        frame,
+        "\"" + item.name + "\" was discontinued."
+      );
+
+    } catch (SQLException ex) {
+      JOptionPane.showMessageDialog(
+        frame,
+        "Could not discontinue menu item:\n" + ex.getMessage(),
+        "Database Error",
+        JOptionPane.ERROR_MESSAGE
+      );
+    }
+  }
+
+  void removeSelected() {
+    inventory.stopEditing();
+
+    int selectedRow = inventory.table.getSelectedRow();
+
+    if (selectedRow < 0) {
+      JOptionPane.showMessageDialog(
+        frame,
+        "Select an item in the table to remove."
+      );
+      return;
+    }
+
+    int row = inventory.table.convertRowIndexToModel(selectedRow);
+
+    InventoryDAO.Item item = inventory.model.items.get(row);
+
+    if (JOptionPane.showConfirmDialog(
+        frame,
+        "Discontinue \"" + item.name + "\" from inventory?",
+        "Discontinue Inventory Item",
+        JOptionPane.YES_NO_OPTION
+        ) != JOptionPane.YES_OPTION) {
+      return;
+    }
+
+    try {
+      dao.discontinueInventoryItem(item.id);
+
+      inventory.reload();
+
+      JOptionPane.showMessageDialog(
+        frame,
+        "\"" + item.name + "\" was discontinued from inventory."
+      );
+
+    } catch (SQLException ex) {
+      JOptionPane.showMessageDialog(
+        frame,
+        "Could not discontinue item:\n" + ex.getMessage(),
+        "Database Error",
+        JOptionPane.ERROR_MESSAGE
+      );
     }
   }
 }
