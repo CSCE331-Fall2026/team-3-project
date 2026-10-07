@@ -7,7 +7,8 @@ While implementing the GUI, we made several adjustments to our original designs 
 
 ### Added
 - **`Menu`**: Added a manager tab that allows menu items and prices to be edited.
-- **`Switch Mode`**: Added a button that allows the user to switch from manager mode to cashier mode.
+- **`Switch Mode`**: Added a button that allows the user to switch from manager mode to cashier mode and from cashier mode to manager mode.
+- **`Manager Pin`**: Added security check when changing from cashier mode to manager mode to ensure that only authorized users can access manager mode.
 - **`Add Item`**: Added functionality for managers to add new inventory items.
 
 ### Changed
