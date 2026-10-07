@@ -4,11 +4,16 @@ import java.util.List;
 import java.util.Map;
 
 /*
- * Database calls for the manager inventory panel (model side of MVC).
+ * Database calls for the manager GUI (model side of MVC).
  *
  *   fetchAll()          - every Inventory row, ordered by name
  *   updateQuantities()  - batch update of Quantity for a set of items (one transaction)
  *   insertItem()        - add a new Inventory row; InventoryID = MAX + 1
+ *   fetchMenuItems()    - every MenuItem row, ordered by MenuItemID
+ *   updatePrices()      - batch update of Price for a set of menu items (one transaction)
+ *
+ * A new price applies to orders placed after it is saved. Past orders are not
+ * touched: their totals are already stored in Orders.Total.
  *
  * The threshold column is Minimum_Threshold in the live database
  * (see generate_base_data.cpp), even though the CHANGELOG calls it MinimumThreshold.
@@ -28,6 +33,13 @@ public class InventoryDAO {
 
     // "low" means at or below the minimum threshold
     public boolean isLow() { return quantity <= threshold; }
+  }
+
+  // One MenuItem row.
+  public static class MenuItem {
+    public int id;
+    public String name;
+    public double price;
   }
 
   private final Connection conn;
@@ -101,6 +113,44 @@ public class InventoryDAO {
       ps.close();
       conn.commit();
       return id;
+    } catch (SQLException ex) {
+      try { conn.rollback(); } catch (SQLException ignored) {}
+      throw ex;
+    } finally {
+      try { conn.setAutoCommit(true); } catch (SQLException ignored) {}
+    }
+  }
+
+  public List<MenuItem> fetchMenuItems() throws SQLException {
+    List<MenuItem> items = new ArrayList<MenuItem>();
+    Statement st = conn.createStatement();
+    ResultSet rs = st.executeQuery(
+      "SELECT MenuItemID, MenuItemName, Price FROM MenuItem ORDER BY MenuItemID");
+    while (rs.next()) {
+      MenuItem it = new MenuItem();
+      it.id = rs.getInt("MenuItemID");
+      it.name = rs.getString("MenuItemName");
+      it.price = rs.getDouble("Price");
+      items.add(it);
+    }
+    rs.close(); st.close();
+    return items;
+  }
+
+  public void updatePrices(Map<Integer, Double> changes) throws SQLException {
+    if (changes.isEmpty()) return;
+    try {
+      conn.setAutoCommit(false);
+      PreparedStatement ps = conn.prepareStatement(
+        "UPDATE MenuItem SET Price = ? WHERE MenuItemID = ?");
+      for (Map.Entry<Integer, Double> e : changes.entrySet()) {
+        ps.setDouble(1, e.getValue());
+        ps.setInt(2, e.getKey());
+        ps.addBatch();
+      }
+      ps.executeBatch();
+      ps.close();
+      conn.commit();
     } catch (SQLException ex) {
       try { conn.rollback(); } catch (SQLException ignored) {}
       throw ex;

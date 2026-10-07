@@ -2,19 +2,15 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.border.CompoundBorder;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
 /*
- * Shared colors, fonts and widget styling for the manager side
- * (ModeSelect + ManagerGUI).
- *
- * RED and GREY are the same colors CashierGUI uses; the other shades are
- * lighter/darker versions of them for hover, stripes and highlights.
- *
- * Buttons are painted flat (no OS skin) so their colors show the same on
- * every look and feel.
+ * Colors, fonts, buttons and table styling for ModeSelect and ManagerGUI.
+ * RED and GREY match CashierGUI.
  */
 public class PandaTheme {
 
@@ -58,7 +54,6 @@ public class PandaTheme {
 
   // Flat colored button that darkens on hover.
   static JButton button(String text, Color bg, Color fg, Color hover) {
-    // fill the background ourselves; the Windows look ignores setBackground on buttons
     final JButton b = new JButton(text) {
       protected void paintComponent(Graphics g) {
         g.setColor(getBackground());
@@ -87,17 +82,14 @@ public class PandaTheme {
     return b;
   }
 
-  // Red with white text (like the cashier's Checkout button).
   static JButton primaryButton(String text) {
     return button(text, RED, WHITE, RED_DARK);
   }
 
-  // Grey with black text (like the cashier's menu item buttons).
   static JButton secondaryButton(String text) {
     return button(text, GREY, BLACK, GREY_DARK);
   }
 
-  // Changes a button's resting color (used for the selected nav tab).
   static void setBase(JButton b, Color bg, Color fg, Color hover) {
     b.putClientProperty("baseColor", bg);
     b.putClientProperty("hoverColor", hover);
@@ -112,7 +104,6 @@ public class PandaTheme {
     return l;
   }
 
-  // Text field with a thin grey outline and some inner padding.
   static JTextField textField(int columns) {
     JTextField f = new JTextField(columns);
     f.setFont(BODY);
@@ -120,5 +111,114 @@ public class PandaTheme {
     f.setBackground(WHITE);
     f.setBorder(new CompoundBorder(new LineBorder(GREY_DARK, 1), new EmptyBorder(5, 8, 5, 8)));
     return f;
+  }
+
+  static JTable styledTable(final TableEdit<?> m) {
+    JTable t = new JTable(m) {
+      public Component prepareRenderer(TableCellRenderer r, int row, int col) {
+        Component c = super.prepareRenderer(r, row, col);
+        if (!isRowSelected(row)) {
+          if (m.isPending(row)) c.setBackground(RED_LIGHT);
+          else c.setBackground(row % 2 == 0 ? WHITE : GREY_LIGHT);
+        }
+        return c;
+      }
+    };
+    t.putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
+    t.setFont(BODY);
+    t.setRowHeight(28);
+    t.setForeground(BLACK);
+    t.setGridColor(GRID);
+    t.setShowVerticalLines(false);
+    t.setSelectionBackground(GREY);
+    t.setSelectionForeground(BLACK);
+    t.setFillsViewportHeight(true);
+    t.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+
+    DefaultTableCellRenderer header = new DefaultTableCellRenderer() {
+      public Component getTableCellRendererComponent(JTable tb, Object v,
+          boolean sel, boolean focus, int row, int col) {
+        super.getTableCellRendererComponent(tb, v, sel, focus, row, col);
+        setBackground(GREY);
+        setForeground(BLACK);
+        setFont(BOLD);
+        int align = SwingConstants.LEFT;
+        TableCellRenderer cr = tb.getColumnModel().getColumn(col).getCellRenderer();
+        if (cr instanceof JLabel) align = ((JLabel) cr).getHorizontalAlignment();
+        setHorizontalAlignment(align);
+        setBorder(new EmptyBorder(0, 8, 0, align == SwingConstants.RIGHT ? 12 : 8));
+        return this;
+      }
+    };
+    t.getTableHeader().setDefaultRenderer(header);
+    t.getTableHeader().setReorderingAllowed(false);
+    t.getTableHeader().setPreferredSize(new Dimension(0, 32));
+
+    // left padding on text cells
+    DefaultTableCellRenderer text = new DefaultTableCellRenderer() {
+      public Component getTableCellRendererComponent(JTable tb, Object v,
+          boolean sel, boolean focus, int row, int col) {
+        super.getTableCellRendererComponent(tb, v, sel, focus, row, col);
+        setBorder(new EmptyBorder(0, 8, 0, 8));
+        return this;
+      }
+    };
+    t.setDefaultRenderer(String.class, text);
+    return t;
+  }
+
+  // Right-aligned number with two decimals.
+  static DefaultTableCellRenderer numberRenderer(final String prefix) {
+    DefaultTableCellRenderer r = new DefaultTableCellRenderer() {
+      public Component getTableCellRendererComponent(JTable tb, Object v,
+          boolean sel, boolean focus, int row, int col) {
+        super.getTableCellRendererComponent(tb, v, sel, focus, row, col);
+        if (v instanceof Double) setText(prefix + String.format("%.2f", (Double) v));
+        setBorder(new EmptyBorder(0, 8, 0, 12));
+        return this;
+      }
+    };
+    r.setHorizontalAlignment(SwingConstants.RIGHT);
+    return r;
+  }
+
+  // Shows "unsaved" in a row whose value is "*".
+  static DefaultTableCellRenderer unsavedRenderer() {
+    DefaultTableCellRenderer r = new DefaultTableCellRenderer() {
+      public Component getTableCellRendererComponent(JTable tb, Object v,
+          boolean sel, boolean focus, int row, int col) {
+        super.getTableCellRendererComponent(tb, v, sel, focus, row, col);
+        setText("*".equals(v) ? "unsaved" : "");
+        setForeground(RED_DARK);
+        setFont(SMALL);
+        return this;
+      }
+    };
+    r.setHorizontalAlignment(SwingConstants.CENTER);
+    return r;
+  }
+
+  // Red "LOW" / green "OK" with a dot.
+  static DefaultTableCellRenderer statusRenderer() {
+    return new DefaultTableCellRenderer() {
+      public Component getTableCellRendererComponent(JTable tb, Object v,
+          boolean sel, boolean focus, int row, int col) {
+        super.getTableCellRendererComponent(tb, v, sel, focus, row, col);
+        boolean low = "LOW".equals(v);
+        setText(low ? "●  LOW" : "●  OK");
+        setForeground(low ? RED : OK_GREEN);
+        setFont(BOLD);
+        setBorder(new EmptyBorder(0, 8, 0, 8));
+        return this;
+      }
+    };
+  }
+
+  static JScrollPane scroll(JTable t) {
+    JScrollPane sp = new JScrollPane(t);
+    sp.setBorder(new LineBorder(GRID, 1));
+    sp.getViewport().setBackground(WHITE);
+    sp.getVerticalScrollBar().setUnitIncrement(16);
+    return sp;
   }
 }

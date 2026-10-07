@@ -100,7 +100,6 @@ public class ModeSelect {
 
   void openCashier() {
     frame.dispose();
-    // CashierGUI was built for Java's default look; switch back before creating it
     PandaTheme.useJavaLook();
     CashierGUI.conn = db;
     new CashierGUI().build();
