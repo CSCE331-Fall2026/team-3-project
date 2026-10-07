@@ -50,12 +50,12 @@ string sql_escape(const string &s) {
 string classify_item(const string &original_name) {
     string name = original_name;
 
-    for (char &c : name)
+    for (char &c : name) {
         c = toupper((unsigned char)c);
+    }
 
     if (name.find("- CUB MEAL") != string::npos)
         return "EXCLUDE";
-
     if (name.find("CUB MEAL (") != string::npos)
         return "Meals";
 

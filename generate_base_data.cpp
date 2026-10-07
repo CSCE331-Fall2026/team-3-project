@@ -26,7 +26,8 @@ int main(int argc, char **argv) {
             "Unit VARCHAR(20) NOT NULL,"
             "Minimum_Threshold DECIMAL(10,2) NOT NULL,"
             "Quantity DECIMAL(10,2) NOT NULL,"
-            "ShelfLifeDays INT NOT NULL"
+            "ShelfLifeDays INT NOT NULL,"
+            "Active BOOLEAN NOT NULL DEFAULT TRUE"
             ");\n\n";
 
     cout << "CREATE TABLE InventoryItem ("
@@ -43,7 +44,9 @@ int main(int argc, char **argv) {
             "MenuItemID INT PRIMARY KEY,"
             "Category VARCHAR(20) NOT NULL,"
             "MenuItemName VARCHAR(150) NOT NULL,"
-            "Price DECIMAL(10,2) NOT NULL"
+            "Price DECIMAL(10,2) NOT NULL,"
+            "Category VARCHAR(30) NOT NULL,"
+            "Active BOOLEAN NOT NULL DEFAULT TRUE"
             ");\n\n";
 
     cout << "CREATE TABLE MenuItemInventory ("
@@ -95,21 +98,21 @@ int main(int argc, char **argv) {
     // MENUITEM
 
     cout << "INSERT INTO MenuItem "
-            "(MenuItemID, MenuItemName, Category, Price) VALUES\n";
+            "(MenuItemID, MenuItemName, Price, Category, Active) VALUES\n";
 
     for (size_t i = 0; i < menu.size(); ++i) {
-
         cout << "("
-             << menu[i].id
-             << ",'"
-             << sql_escape(menu[i].name)
-             << "','"
-             << sql_escape(classify_item(menu[i].name))
-             << "',"
-             << fixed
-             << setprecision(2)
-             << menu[i].price
-             << ")";
+            << menu[i].id
+            << ",'"
+            << sql_escape(menu[i].name)
+            << "',"
+            << fixed
+            << setprecision(2)
+            << menu[i].price
+            << ",'"
+            << sql_escape(menu[i].category)
+            << "',TRUE"
+            << ")";
 
         if (i + 1 < menu.size())
             cout << ",\n";
