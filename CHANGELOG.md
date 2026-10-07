@@ -10,10 +10,14 @@ While implementing the GUI, we made several adjustments to our original designs 
 - **`Switch Mode`**: Added a button that allows the user to switch from manager mode to cashier mode and from cashier mode to manager mode.
 - **`Manager Pin`**: Added security check when changing from cashier mode to manager mode to ensure that only authorized users can access manager mode.
 - **`Add Item`**: Added functionality for managers to add new inventory items.
+- **`Remove Item`**: Added button to discontinue inventory items and menu items on those respective pages
+- **`Reactivate Item`**: Added button to reactivate discontinued inventory items that are no longer in use if they have existed in the past
 
 ### Changed
 - **`Inventory`**: Updated the inventory page to include a remove item button, editable inventory quantities, and a refresh button to resync inventory information with the database.
 - **`Cashier Menu`**: Adjusted the original cashier layout to organize items into categories such as Sides, Entrees, Appetizers, Meals, Extras, and Drinks rather than the original Plate/Bowl-style layout.
+- **`Inventory`**: Added `Active` category to tell whether inventory should be used in GUI
+- **`MenuItem`**: Added `Active` category to tell whether menuItem should be in GUI.
 
 ### Not Implemented
 - **`Schedule`**: We currently do not have a way to track employee data. Employees will need to be added to the database before this functionality can be implemented.
@@ -34,7 +38,7 @@ While building the data generator, we found that the Phase 1 could not represent
 ### Changed
 - **`INVENTORYITEM.ShipmentID`**: int → bigint, to allow for a larger history.
 - **`INVENTORYITEM.Quantity`**: int → decimal, since shipments arrive in fractions.
-- **`INVENTORY.Minimum_Threshold`** → **`MinimumThreshold`**: changed to decimal to match `Quantity`.
+- **`INVENTORY.Minimum_Threshold`** → **`Minimum_Threshold`**: changed to decimal to match `Quantity`.
 - **`INVENTORY.Quantity`**: int → decimal, since stock is fractional and comes from shipments.
 - **`MENUITEMINVENTORY.QuantityRequired`**: int → decimal, since recipes use fractional amounts.
 - **`ORDERITEM.Qty`**: default removed so quantity is always written.
