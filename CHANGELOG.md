@@ -1,5 +1,23 @@
 # Changelog
 
+## Phase 3: GUI Implementation
+
+### Summary
+While implementing the GUI, we made several adjustments to our original designs based on how the menu items and manager functionality needed to be organized. The cashier layout was modified to better separate menu categories and make item selection easier. We also expanded the manager GUI because our original design did not account for all of the functionality managers would need.
+
+### Added
+- **`Menu`**: Added a manager tab that allows menu items and prices to be edited.
+- **`Switch Mode`**: Added a button that allows the user to switch from manager mode to cashier mode.
+- **`Add Item`**: Added functionality for managers to add new inventory items.
+
+### Changed
+- **`Inventory`**: Updated the inventory page to include a remove item button, editable inventory quantities, and a refresh button to resync inventory information with the database.
+- **`Cashier Menu`**: Adjusted the original cashier layout to organize items into categories such as Sides, Entrees, Appetizers, Meals, Extras, and Drinks rather than the original Plate/Bowl-style layout.
+
+### Not Implemented
+- **`Schedule`**: We currently do not have a way to track employee data. Employees will need to be added to the database before this functionality can be implemented.
+- **`Reports`**: The Reports tab has been added to the GUI, but its functionality will be implemented during a later stage of the project.
+
 ## Phase 2: Database Population
 
 ### Summary
