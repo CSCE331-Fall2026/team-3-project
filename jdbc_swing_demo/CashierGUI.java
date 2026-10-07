@@ -45,15 +45,7 @@ public class CashierGUI {
   static final String[] SIZES = {"KIDS", "SMALL", "MEDIUM", "MEDDIUM", "LARGE"};
 
   // category name -> [min MenuItemID, max MenuItemID] in the MenuItem table
-  static final LinkedHashMap<String, int[]> CATEGORIES = new LinkedHashMap<String, int[]>();
-  static {
-    CATEGORIES.put("Sides",      new int[] {1, 5});
-    CATEGORIES.put("Entrees",    new int[] {6, 25});
-    CATEGORIES.put("Appetizers", new int[] {26, 29});
-    CATEGORIES.put("Meals",  new int[] {30, 32});
-    CATEGORIES.put("Extras",     new int[] {33, 43});
-    CATEGORIES.put("Drinks",     new int[] {44, 154});
-  }
+  static final String[] CATEGORIES = {"Sides", "Entrees", "Appetizers", "Meals", "Extras", "Drinks"};
 
   JFrame frame;
   JPanel itemsPanel;
@@ -179,9 +171,9 @@ public class CashierGUI {
     JPanel area = new JPanel(new BorderLayout(0, 12));
     area.setOpaque(false);
 
-    JPanel cats = new JPanel(new GridLayout(1, CATEGORIES.size(), 6, 0));
+    JPanel cats = new JPanel(new GridLayout(1, CATEGORIES.length, 6, 0));
     cats.setOpaque(false);
-    for (final String cat : CATEGORIES.keySet()) {
+    for (final String cat : CATEGORIES) {
       JButton b = PandaTheme.secondaryButton(cat);
       b.addActionListener(new ActionListener() {
         public void actionPerformed(ActionEvent e) { showCategory(cat); }
@@ -212,22 +204,20 @@ public class CashierGUI {
           PandaTheme.GREY, PandaTheme.BLACK, PandaTheme.GREY_DARK);
       }
     }
-    int[] range = CATEGORIES.get(category);
     List<Object[]> items = new ArrayList<Object[]>();
     try {
       PreparedStatement ps = conn.prepareStatement(
         "SELECT MenuItemID, MenuItemName, Price FROM MenuItem " +
-        "WHERE MenuItemID BETWEEN ? AND ? ORDER BY MenuItemID");
-      ps.setInt(1, range[0]);
-      ps.setInt(2, range[1]);
-      ResultSet rs = ps.executeQuery();
-      while (rs.next()) {
-        items.add(new Object[] {rs.getInt("MenuItemID"),
-          rs.getString("MenuItemName"), rs.getDouble("Price")});
+        "WHERE Category = ? ORDER BY MenuItemName");
+      ps.setString(1, category);
+      try (ResultSet rs = ps.executeQuery()) {
+        while (rs.next()) {
+          items.add(new Object[] {rs.getInt("MenuItemID"),
+            rs.getString("MenuItemName"), rs.getDouble("Price")});
+        }
       }
-      rs.close(); ps.close();
     } catch (SQLException ex) {
-      JOptionPane.showMessageDialog(frame, "Error loading menu: " + ex.getMessage());
+        JOptionPane.showMessageDialog(frame, "Error loading menu: " + ex.getMessage());
     }
     if ("Drinks".equals(category)) showDrinkGrid(items);
     else showItemGrid(items);
@@ -402,11 +392,12 @@ public class CashierGUI {
   }
 
   void addItem(int id, String name, double price) {
-    if (!isAvailable(id)) {
+    Object[] line = orderLines.get(id);
+    int in_cart = (line == null) ? 0 : (Integer) line[2];
+    if (!isAvailable(id, in_cart + 1)) {
       JOptionPane.showMessageDialog(frame, name + " is out of stock.");
       return;
     }
-    Object[] line = orderLines.get(id);
     if (line == null) orderLines.put(id, new Object[] {name, price, 1});
     else line[2] = (Integer) line[2] + 1;
     refreshTicket();
@@ -414,21 +405,21 @@ public class CashierGUI {
 
   // An item is available if it has no inventory mapping, or every mapped
   // ingredient still has stock (contract: check inventory before selling).
-  boolean isAvailable(int menuItemId) {
+  boolean isAvailable(int menuItemId, int qtyWanted) {
     try {
       PreparedStatement ps = conn.prepareStatement(
-        "SELECT COUNT(*) AS needed, " +
-        "COUNT(*) FILTER (WHERE i.Quantity >= mii.QuantityRequired) AS stocked " +
-        "FROM MenuItemInventory mii " +
-        "JOIN Inventory i ON i.InventoryID = mii.InventoryID " +
-        "WHERE mii.MenuItemID = ?");
+      "SELECT NOT EXISTS (" +
+      "  SELECT 1 FROM MenuItemInventory mii " +
+      "  JOIN Inventory i ON i.InventoryID = mii.InventoryID " +
+      "  WHERE mii.MenuItemID = ? " +
+      "    AND i.Quantity < mii.QuantityRequired * ?" +
+      ") AS ok");
       ps.setInt(1, menuItemId);
-      ResultSet rs = ps.executeQuery();
-      rs.next();
-      boolean ok = rs.getInt("needed") == 0 ||
-                   rs.getInt("needed") == rs.getInt("stocked");
-      rs.close(); ps.close();
-      return ok;
+      ps.setInt(2, qtyWanted);
+      try (ResultSet rs = ps.executeQuery()){
+        rs.next();
+        return rs.getBoolean("ok");
+      }
     } catch (SQLException ex) {
       return true; // don't block sales on a lookup failure
     }
@@ -505,6 +496,16 @@ public class CashierGUI {
         decInv.setInt(2, menuItemId);
         decInv.executeUpdate();
       }
+
+      try(Statement check = conn.createStatement();
+        ResultSet neg = check.executeQuery(
+          "SELECT itemname FROM Inventory WHERE Quantity < 0")) {
+            if(neg.next()) {
+              conn.rollback();
+              JOptionPane.showMessageDialog(frame, "Not enough " + neg.getString(1) + " to complete this order.");
+              return;
+            }
+          }
 
       conn.commit();
       JOptionPane.showMessageDialog(frame,

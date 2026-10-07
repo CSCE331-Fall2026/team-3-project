@@ -41,6 +41,7 @@ int main(int argc, char **argv) {
 
     cout << "CREATE TABLE MenuItem ("
             "MenuItemID INT PRIMARY KEY,"
+            "Category VARCHAR(20) NOT NULL,"
             "MenuItemName VARCHAR(150) NOT NULL,"
             "Price DECIMAL(10,2) NOT NULL"
             ");\n\n";
@@ -94,7 +95,7 @@ int main(int argc, char **argv) {
     // MENUITEM
 
     cout << "INSERT INTO MenuItem "
-            "(MenuItemID, MenuItemName, Price) VALUES\n";
+            "(MenuItemID, MenuItemName, Category, Price) VALUES\n";
 
     for (size_t i = 0; i < menu.size(); ++i) {
 
@@ -102,6 +103,8 @@ int main(int argc, char **argv) {
              << menu[i].id
              << ",'"
              << sql_escape(menu[i].name)
+             << "','"
+             << sql_escape(classify_item(menu[i].name))
              << "',"
              << fixed
              << setprecision(2)

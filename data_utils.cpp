@@ -57,30 +57,30 @@ string classify_item(const string &original_name) {
         return "EXCLUDE";
 
     if (name.find("CUB MEAL (") != string::npos)
-        return "CUB_MEAL";
+        return "Meals";
 
     if (name == "CHOW FUN" ||
         name == "CHOW MEIN" ||
         name == "FRIED RICE" ||
         name == "SUPER GREENS" ||
         name == "WHITE STEAMED RICE")
-        return "SIDE";
+        return "Sides";
 
     if (name.find("EGG ROLL") != string::npos ||
         name.find("POTSTICKER (") != string::npos ||
         name.find("CREAM CHEESE RANGOON") != string::npos ||
         name.find("SPRING ROLL") != string::npos)
-        return "APPETIZER";
+        return "Appetizers";
 
     if (name.find("SAUCE") != string::npos ||
         name == "HOT MUSTARD" ||
         name == "FORTUNE COOKIE" ||
         name == "TREE TOP APPLE CRISPS" ||
         name == "APPLE PIE ROLL")
-        return "EXTRA";
+        return "Extras";
 
     if (name.find("SOUP") != string::npos)
-        return "SIDE";
+        return "Sides";
 
     if (name.find("COCA-COLA") != string::npos ||
         name.find("COKE") != string::npos ||
@@ -94,9 +94,9 @@ string classify_item(const string &original_name) {
         name.find("GINGER ALE") != string::npos ||
         name.find("VITAMINWATER") != string::npos ||
         name.find("REFRESHER") != string::npos)
-        return "DRINK";
+        return "Drinks";
 
-    return "ENTREE";
+    return "Entrees";
 }
 
 

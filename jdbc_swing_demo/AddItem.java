@@ -1,9 +1,17 @@
 import java.sql.SQLException;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableModel;
+
 import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
+
 
 /*
  * Form for a new Inventory row. Errors show in red; closes on Cancel or a
@@ -25,21 +33,20 @@ public class AddItem extends JDialog {
     setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 
     final JTextField name = PandaTheme.textField(18);
-    final JTextField unit = PandaTheme.textField(18);
-    final JTextField threshold = PandaTheme.textField(18);
-    final JTextField quantity = PandaTheme.textField(18);
-    final JTextField shelfLife = PandaTheme.textField(18);
+    final JComboBox<String> category = new JComboBox<String>(CashierGUI.CATEGORIES);
+    category.setFont(PandaTheme.BODY);
+    final JTextField price = PandaTheme.textField(18);
 
     JPanel root = new JPanel(new BorderLayout(0, 12));
     root.setBackground(PandaTheme.WHITE);
     root.setBorder(new EmptyBorder(18, 20, 18, 20));
-    root.add(PandaTheme.label("Add Inventory Item", PandaTheme.HEADING, PandaTheme.BLACK),
+    root.add(PandaTheme.label("Add Menu Item", PandaTheme.HEADING, PandaTheme.BLACK),
       BorderLayout.NORTH);
 
     JPanel form = new JPanel(new GridBagLayout());
     form.setOpaque(false);
-    String[] labels = {"Item name", "Unit", "Minimum threshold", "Quantity", "Shelf life (days)"};
-    JTextField[] fields = {name, unit, threshold, quantity, shelfLife};
+    String[] labels = {"Item name", "Category", "Price"};
+    JComponent[] fields = {name, category, price};
     GridBagConstraints c = new GridBagConstraints();
     c.insets = new Insets(5, 0, 5, 12);
     c.anchor = GridBagConstraints.WEST;
@@ -51,6 +58,45 @@ public class AddItem extends JDialog {
       form.add(fields[i], c);
     }
     root.add(form, BorderLayout.CENTER);
+
+    final List<InventoryDAO.Item> inventory;
+
+    try {
+      inventory = dao.fetchAll();
+    } catch (SQLException ex) {
+      JOptionPane.showMessageDialog(owner, "Could not load inventory. Try again.");
+      dispose();
+      throw new IllegalStateException();
+    }
+    
+    final DefaultTableModel recipeModel = new DefaultTableModel(
+        new String[] {"Ingredient", "Unit", "Qty per item"}, 0) {
+      public Class<?> getColumnClass(int col) { return col == 2 ? Double.class : String.class; }
+      public boolean isCellEditable(int r, int col) { return col == 2; }
+    };
+    for (InventoryDAO.Item it : inventory) {
+      recipeModel.addRow(new Object[] {it.name, it.unit, null});
+    }
+
+    final JTable recipe = new JTable(recipeModel);
+    recipe.setFont(PandaTheme.BODY);
+    recipe.setRowHeight(24);
+    recipe.putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
+    recipe.getColumnModel().getColumn(0).setPreferredWidth(220);
+    JScrollPane recipeScroll = PandaTheme.scroll(recipe);
+    recipeScroll.setPreferredSize(new Dimension(420, 200));
+
+    JPanel recipePanel = new JPanel(new BorderLayout(0, 6));
+    recipePanel.setOpaque(false);
+    recipePanel.add(PandaTheme.label("Ingredients (leave blank if not used)",
+      PandaTheme.BOLD, PandaTheme.BLACK), BorderLayout.NORTH);
+    recipePanel.add(recipeScroll, BorderLayout.CENTER);
+
+    JPanel center = new JPanel(new BorderLayout(0, 12));
+    center.setOpaque(false);
+    center.add(form, BorderLayout.NORTH);
+    center.add(recipePanel, BorderLayout.CENTER);
+    root.add(center, BorderLayout.CENTER);
 
     final JLabel error = PandaTheme.label(" ", PandaTheme.SMALL, PandaTheme.RED);
     JButton cancel = PandaTheme.secondaryButton("Cancel");
@@ -70,23 +116,28 @@ public class AddItem extends JDialog {
     });
     ok.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
-        String n = name.getText().trim(), u = unit.getText().trim();
-        Double t = parseNonNegative(threshold.getText());
-        Double q = parseNonNegative(quantity.getText());
+        String n = name.getText().trim();
+        String c = (String) category.getSelectedItem();
+        Double p = parseNonNegative(price.getText());
         Integer s = null;
-        try {
-          s = Integer.parseInt(shelfLife.getText().trim());
-          if (s < 0) s = null;
-        } catch (NumberFormatException ignored) {}
 
         String err = null;
         if (n.isEmpty()) err = "Item name is required.";
         else if (n.length() > 100) err = "Item name is too long (max 100).";
-        else if (u.isEmpty()) err = "Unit is required.";
-        else if (u.length() > 20) err = "Unit is too long (max 20).";
-        else if (t == null) err = "Minimum threshold must be a non-negative number.";
-        else if (q == null) err = "Quantity must be a non-negative number.";
-        else if (s == null) err = "Shelf life must be a non-negative whole number.";
+        else if ( p == 0) err = "Price must be greater than $0.00";
+
+        Map<Integer, Double> ingredients = new LinkedHashMap<Integer, Double>();
+        for (int r = 0; err == null && r < recipeModel.getRowCount(); r++) {
+          Object v = recipeModel.getValueAt(r, 2);
+          if (v == null) continue;
+          double d = (Double) v;
+          if (d == 0) continue;
+          if (d < 0 || Double.isNaN(d) || Double.isInfinite(d)) {
+            err = "Quantity for " + recipeModel.getValueAt(r, 0) + " must be a positive number.";
+          } else {
+            ingredients.put(inventory.get(r).id, Math.round(d * 1000) / 1000.0);
+          }
+        }
 
         if (err != null) {
           error.setText(err);
@@ -94,7 +145,7 @@ public class AddItem extends JDialog {
         }
 
         try {
-          dao.insertItem(n, u, t, q, s);
+          dao.insertMenuItem(n, c, p, ingredients);
           dispose();
           onAdded.run();
         } catch (SQLException ex) {

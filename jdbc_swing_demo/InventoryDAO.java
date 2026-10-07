@@ -39,6 +39,7 @@ public class InventoryDAO {
   public static class MenuItem {
     public int id;
     public String name;
+    public String category;
     public double price;
   }
 
@@ -80,6 +81,53 @@ public class InventoryDAO {
       ps.executeBatch();
       ps.close();
       conn.commit();
+    } catch (SQLException ex) {
+      try { conn.rollback(); } catch (SQLException ignored) {}
+      throw ex;
+    } finally {
+      try { conn.setAutoCommit(true); } catch (SQLException ignored) {}
+    }
+  }
+
+public int insertMenuItem(String name, String category, double price,
+                            Map<Integer, Double> ingredients) throws SQLException {
+    try {
+      conn.setAutoCommit(false);
+
+      int id;
+      try (Statement st = conn.createStatement();
+           ResultSet rs = st.executeQuery(
+             "SELECT COALESCE(MAX(MenuItemID), 0) + 1 FROM MenuItem")) {
+        rs.next();
+        id = rs.getInt(1);
+      }
+
+      try (PreparedStatement ps = conn.prepareStatement(
+             "INSERT INTO MenuItem (MenuItemID, MenuItemName, Category, Price) " +
+             "VALUES (?, ?, ?, ?)")) {
+        ps.setInt(1, id);
+        ps.setString(2, name);
+        ps.setString(3, category);
+        ps.setDouble(4, price);
+        ps.executeUpdate();
+      }
+
+      if (!ingredients.isEmpty()) {
+        try (PreparedStatement ps = conn.prepareStatement(
+               "INSERT INTO MenuItemInventory (MenuItemID, InventoryID, QuantityRequired) " +
+               "VALUES (?, ?, ?)")) {
+          for (Map.Entry<Integer, Double> e : ingredients.entrySet()) {
+            ps.setInt(1, id);
+            ps.setInt(2, e.getKey());
+            ps.setDouble(3, e.getValue());
+            ps.addBatch();
+          }
+          ps.executeBatch();
+        }
+      }
+
+      conn.commit();
+      return id;
     } catch (SQLException ex) {
       try { conn.rollback(); } catch (SQLException ignored) {}
       throw ex;
