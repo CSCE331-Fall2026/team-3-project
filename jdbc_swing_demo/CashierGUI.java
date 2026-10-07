@@ -7,7 +7,10 @@ import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /*
@@ -37,6 +40,9 @@ public class CashierGUI {
 
   // 4-digit PIN required to switch from the cashier side to the manager side
   static final String MANAGER_PIN = "1234";
+
+  // size suffixes used to group drinks ("NAME - SIZE"); MEDDIUM is a typo in the data
+  static final String[] SIZES = {"KIDS", "SMALL", "MEDIUM", "MEDDIUM", "LARGE"};
 
   // category name -> [min MenuItemID, max MenuItemID] in the MenuItem table
   static final LinkedHashMap<String, int[]> CATEGORIES = new LinkedHashMap<String, int[]>();
@@ -206,8 +212,8 @@ public class CashierGUI {
           PandaTheme.GREY, PandaTheme.BLACK, PandaTheme.GREY_DARK);
       }
     }
-    itemsPanel.removeAll();
     int[] range = CATEGORIES.get(category);
+    List<Object[]> items = new ArrayList<Object[]>();
     try {
       PreparedStatement ps = conn.prepareStatement(
         "SELECT MenuItemID, MenuItemName, Price FROM MenuItem " +
@@ -216,25 +222,121 @@ public class CashierGUI {
       ps.setInt(2, range[1]);
       ResultSet rs = ps.executeQuery();
       while (rs.next()) {
-        final int id = rs.getInt("MenuItemID");
-        final String name = rs.getString("MenuItemName");
-        final double price = rs.getDouble("Price");
-        JButton b = PandaTheme.secondaryButton("<html><center>" + name + "<br>$" +
-          String.format("%.2f", price) + "</center></html>");
-        b.setFont(PandaTheme.SMALL);
-        b.setBorder(new EmptyBorder(4, 6, 4, 6));
-        b.setPreferredSize(new Dimension(150, 70));
-        b.addActionListener(new ActionListener() {
-          public void actionPerformed(ActionEvent e) { addItem(id, name, price); }
-        });
-        itemsPanel.add(b);
+        items.add(new Object[] {rs.getInt("MenuItemID"),
+          rs.getString("MenuItemName"), rs.getDouble("Price")});
       }
       rs.close(); ps.close();
     } catch (SQLException ex) {
       JOptionPane.showMessageDialog(frame, "Error loading menu: " + ex.getMessage());
     }
+    if ("Drinks".equals(category)) showDrinkGrid(items);
+    else showItemGrid(items);
+  }
+
+  // Flat grid: one button per menu item.
+  void showItemGrid(List<Object[]> items) {
+    itemsPanel.removeAll();
+    for (Object[] it : items) {
+      itemsPanel.add(itemButton((Integer) it[0], (String) it[1], (Double) it[2],
+        (String) it[1]));
+    }
     itemsPanel.revalidate();
     itemsPanel.repaint();
+  }
+
+  // Drinks: one button per drink name; sizes are picked on the next screen.
+  void showDrinkGrid(List<Object[]> items) {
+    LinkedHashMap<String, List<Object[]>> drinks =
+      new LinkedHashMap<String, List<Object[]>>();
+    for (Object[] it : items) {
+      String base = baseName((String) it[1]);
+      if (!drinks.containsKey(base)) drinks.put(base, new ArrayList<Object[]>());
+      drinks.get(base).add(it);
+    }
+    itemsPanel.removeAll();
+    for (Map.Entry<String, List<Object[]>> e : drinks.entrySet()) {
+      final String base = e.getKey();
+      final List<Object[]> sizes = e.getValue();
+      if (sizes.size() == 1) { // no size variants: add it directly
+        Object[] it = sizes.get(0);
+        itemsPanel.add(itemButton((Integer) it[0], (String) it[1], (Double) it[2],
+          (String) it[1]));
+      } else {
+        JButton b = gridButton(base);
+        b.addActionListener(new ActionListener() {
+          public void actionPerformed(ActionEvent e2) { showSizeGrid(base, sizes); }
+        });
+        itemsPanel.add(b);
+      }
+    }
+    itemsPanel.revalidate();
+    itemsPanel.repaint();
+  }
+
+  // Size picker for one drink: back button, then one button per size.
+  void showSizeGrid(String base, List<Object[]> sizes) {
+    List<Object[]> sorted = new ArrayList<Object[]>(sizes);
+    Collections.sort(sorted, new Comparator<Object[]>() {
+      public int compare(Object[] a, Object[] b) {
+        return sizeOrder((String) a[1]) - sizeOrder((String) b[1]);
+      }
+    });
+    itemsPanel.removeAll();
+    JButton back = gridButton("&lt; Back");
+    back.addActionListener(new ActionListener() {
+      public void actionPerformed(ActionEvent e) { showCategory("Drinks"); }
+    });
+    itemsPanel.add(back);
+    for (Object[] it : sorted) {
+      itemsPanel.add(itemButton((Integer) it[0], (String) it[1], (Double) it[2],
+        sizeLabel((String) it[1])));
+    }
+    itemsPanel.revalidate();
+    itemsPanel.repaint();
+  }
+
+  // Drink name without the size suffix ("COCA-COLA - SMALL" -> "COCA-COLA").
+  static String baseName(String name) {
+    int i = name.lastIndexOf(" - ");
+    if (i < 0) return name;
+    String suffix = name.substring(i + 3);
+    for (String s : SIZES) {
+      if (suffix.equals(s)) return name.substring(0, i);
+    }
+    return name;
+  }
+
+  // Title-cased size for the button label ("... - MEDDIUM" -> "Medium").
+  static String sizeLabel(String name) {
+    String s = name.substring(name.lastIndexOf(" - ") + 3);
+    if (s.equals("MEDDIUM")) s = "MEDIUM";
+    return s.charAt(0) + s.substring(1).toLowerCase();
+  }
+
+  static int sizeOrder(String name) {
+    String s = name.substring(name.lastIndexOf(" - ") + 3);
+    if (s.equals("KIDS")) return 0;
+    if (s.equals("SMALL")) return 1;
+    if (s.equals("MEDIUM") || s.equals("MEDDIUM")) return 2;
+    if (s.equals("LARGE")) return 3;
+    return 4;
+  }
+
+  JButton gridButton(String label) {
+    JButton b = PandaTheme.secondaryButton("<html><center>" + label + "</center></html>");
+    b.setFont(PandaTheme.SMALL);
+    b.setBorder(new EmptyBorder(4, 6, 4, 6));
+    b.setPreferredSize(new Dimension(150, 70));
+    return b;
+  }
+
+  // Item button: shows label + price, adds id/name to the ticket on click.
+  JButton itemButton(final int id, final String name, final double price, String label) {
+    JButton b = gridButton(label + "<br>$" + String.format("%.2f", price));
+    b.addActionListener(new ActionListener() {
+      public void actionPerformed(ActionEvent e) { addItem(id, name, price); }
+    });
+    return b;
   }
 
   // ---- Right: order ticket ----
