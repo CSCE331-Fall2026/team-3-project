@@ -35,6 +35,9 @@ public class CashierGUI {
 
   static final double TAX_RATE = 0.0825;
 
+  // 4-digit PIN required to switch from the cashier side to the manager side
+  static final String MANAGER_PIN = "1234";
+
   // category name -> [min MenuItemID, max MenuItemID] in the MenuItem table
   static final LinkedHashMap<String, int[]> CATEGORIES = new LinkedHashMap<String, int[]>();
   static {
@@ -129,7 +132,40 @@ public class CashierGUI {
 
     tabs.add(menu); tabs.add(inv); tabs.add(rep);
     nav.add(tabs, BorderLayout.WEST);
+
+    JButton switchMode = PandaTheme.button("Switch Mode",
+      PandaTheme.WHITE, PandaTheme.BLACK, PandaTheme.GREY_LIGHT);
+    switchMode.addActionListener(new ActionListener() {
+      public void actionPerformed(ActionEvent e) { switchToManager(); }
+    });
+    JPanel right = new JPanel(new GridBagLayout());
+    right.setOpaque(false);
+    right.setBorder(new EmptyBorder(0, 0, 0, 12));
+    right.add(switchMode);
+    nav.add(right, BorderLayout.EAST);
     return nav;
+  }
+
+  // Ask for the manager PIN, then open the manager side. Wrong PIN stays here.
+  void switchToManager() {
+    if (!orderLines.isEmpty() && JOptionPane.showConfirmDialog(frame,
+        "The current order will be discarded. Switch to manager mode?", "Switch Mode",
+        JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) {
+      return;
+    }
+    JPasswordField pin = new JPasswordField(10);
+    pin.setFont(PandaTheme.BODY);
+    int choice = JOptionPane.showConfirmDialog(frame, pin, "Enter Manager PIN",
+      JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+    if (choice != JOptionPane.OK_OPTION) return;
+    if (!MANAGER_PIN.equals(new String(pin.getPassword()))) {
+      JOptionPane.showMessageDialog(frame, "Incorrect PIN.", "Manager PIN",
+        JOptionPane.ERROR_MESSAGE);
+      return;
+    }
+    frame.dispose();
+    PandaTheme.useSystemLook();
+    new ManagerGUI(conn).build();
   }
 
   // ---- Left: category row + scrollable grid of item buttons ----

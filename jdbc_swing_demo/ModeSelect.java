@@ -10,7 +10,7 @@ import java.awt.event.ActionEvent;
  *
  * Opens one database connection and hands it to whichever GUI is picked.
  * ManagerGUI has a "Switch Mode" button that comes back here;
- * CashierGUI does not (cashier side is handled separately).
+ * CashierGUI has one that opens the manager side after a PIN check.
  */
 public class ModeSelect {
 
