@@ -48,15 +48,24 @@ in a single transaction. INV./REP. buttons are manager-only placeholders.
 Build and run (fill in credentials in `dbSetup.java` first; on Mac/Linux
 replace the `;` with a `:`):
 
-> javac -cp ".:postgresql-42.2.8.jar" dbSetup.java CashierGUI.java
+Compile with:
+> cd jdbc_swing_demo  
+> javac -cp ".:postgresql-42.2.8.jar" dbSetup.java CashierGUI.java  
+> cd ..  
 
-> java -cp ".:postgresql-42.2.8.jar" CashierGUI
-
+Run with:
+> cd jdbc_swing_demo  
+> java -cp ".:postgresql-42.2.8.jar" CashierGUI  
+> cd ..  
 
 ## Manager GUI
+Compile with:
+> cd jdbc_swing_demo  
+> javac -cp ".:postgresql-42.2.8.jar" dbSetup.java InventoryDAO.java ManagerGUI.java  
+> cd ..  
 
-> javac -cp ".:postgresql-42.2.8.jar" dbSetup.java InventoryDAO.java ManagerGUI.java
-
-> java -cp ".:postgresql-42.2.8.jar" ManagerGUI
-
+Run with:
+> cd jdbc_swing_demo  
+> java -cp ".:postgresql-42.2.8.jar" ManagerGUI  
+> cd ..  
 
