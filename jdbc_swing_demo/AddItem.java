@@ -8,9 +8,18 @@ import java.awt.event.ActionEvent;
 /*
  * Form for a new Inventory row. Errors show in red; closes on Cancel or a
  * successful insert, then runs onAdded.
+ * 
+ * @author Vishanth Yoganand
  */
 public class AddItem extends JDialog {
+  /*
+  Functionality for button to add a menuitem to the database.
 
+  * @param owner the user the window is centered on
+  * @param dao database access to add items
+  * @param onAdded to run after sucessful insert
+  * @return void as it is the constructor
+  */
   public AddItem(JFrame owner, final InventoryDAO dao, final Runnable onAdded) {
     super(owner, "Add Inventory Item", true);
     setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
@@ -100,6 +109,12 @@ public class AddItem extends JDialog {
     setLocationRelativeTo(owner);
   }
 
+  /*
+  * Parses a string to check if it contains a negative number.
+  *
+  * @param text containting a number
+  * @return number if positive, null if negative
+  */
   static Double parseNonNegative(String text) {
     try {
       double d = Double.parseDouble(text.trim());
