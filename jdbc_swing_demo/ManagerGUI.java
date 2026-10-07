@@ -9,8 +9,9 @@ import java.util.List;
 import java.util.Map;
 
 /*
- * Manager window: Inventory (edit amounts, add item, remove item - visual only),
- * Menu (edit prices; future orders only), Reports and Schedule placeholders.
+ * Manager window: Inventory (edit amounts, add, discontinue, and reactivate items),
+ * Menu (edit prices, add, and discontinue items),
+ * Reports and Schedule placeholders.
  * LOW = Quantity <= Minimum_Threshold.
  */
 public class ManagerGUI {
@@ -130,39 +131,150 @@ public class ManagerGUI {
 
   // Inventory page: Item | Amount | Unit | Status | Unsaved
   JPanel buildInventoryPage() {
-    TableEdit<InventoryDAO.Item> m = new TableEdit<InventoryDAO.Item>(
+
+    TableEdit<InventoryDAO.Item> m =
+      new TableEdit<InventoryDAO.Item>(
         new String[] {"Item", "Amount", "Unit", "Status", "Unsaved"}) {
-      int id(InventoryDAO.Item it) { return it.id; }
-      double value(InventoryDAO.Item it) { return it.quantity; }
+
+      int id(InventoryDAO.Item it) {
+        return it.id;
+      }
+
+      double value(InventoryDAO.Item it) {
+        return it.quantity;
+      }
+
       Object cell(InventoryDAO.Item it, int c) {
-        if (c == 0) return it.name;
-        if (c == 2) return it.unit;
+
+        if (c == 0) {
+          return it.name;
+        }
+
+        if (c == 2) {
+          return it.unit;
+        }
+
         return it.isLow() ? "LOW" : "ok";
       }
     };
-    inventory = new TablePage<InventoryDAO.Item>(frame, "Inventory", null, "items", m, "",
-        new int[] {280, 110, 90, 100, 90}) {
-      List<InventoryDAO.Item> load() throws SQLException { return dao.fetchAll(); }
-      void store(Map<Integer, Double> changes) throws SQLException {
+
+    inventory =
+      new TablePage<InventoryDAO.Item>(
+        frame,
+        "Inventory",
+        null,
+        "items",
+        m,
+        "",
+        new int[] {
+          280,
+          110,
+          90,
+          100,
+          90
+        }) {
+
+      List<InventoryDAO.Item> load()
+          throws SQLException {
+
+        return dao.fetchAll();
+      }
+
+      void store(Map<Integer, Double> changes)
+          throws SQLException {
+
         dao.updateQuantities(changes);
       }
     };
-    inventory.table.getColumnModel().getColumn(3).setCellRenderer(PandaTheme.statusRenderer());
 
-    JButton remove = PandaTheme.secondaryButton("Remove Item");
-    remove.addActionListener(new ActionListener() {
-      public void actionPerformed(ActionEvent e) { removeSelected(); }
-    });
-    JButton add = PandaTheme.secondaryButton("+ Add Item");
-    add.addActionListener(new ActionListener() {
-      public void actionPerformed(ActionEvent e) {
-        new AddItem(frame, dao, new Runnable() {
-          public void run() { inventory.reload(); }
-        }).setVisible(true);
+    inventory.table
+      .getColumnModel()
+      .getColumn(3)
+      .setCellRenderer(
+        PandaTheme.statusRenderer()
+      );
+
+    // -----------------------------------------------------
+    // Discontinue
+    // -----------------------------------------------------
+
+    JButton discontinue = PandaTheme.secondaryButton("Discontinue Item");
+
+    discontinue.addActionListener(
+      new ActionListener() {
+
+        public void actionPerformed(
+            ActionEvent e) {
+
+          removeSelected();
+        }
       }
-    });
-    inventory.topButtons.add(remove);
+    );
+
+    // -----------------------------------------------------
+    // Reactivate
+    // -----------------------------------------------------
+
+    JButton reactivate =
+      PandaTheme.secondaryButton(
+        "Reactivate Item"
+      );
+
+    reactivate.addActionListener(
+      new ActionListener() {
+
+        public void actionPerformed(
+            ActionEvent e) {
+
+          new ReactivateItem(
+            frame,
+            dao,
+            new Runnable() {
+
+              public void run() {
+                inventory.reload();
+              }
+
+            }
+          ).setVisible(true);
+        }
+      }
+    );
+
+    // -----------------------------------------------------
+    // Add new
+    // -----------------------------------------------------
+
+    JButton add =
+      PandaTheme.secondaryButton(
+        "+ Add Item"
+      );
+
+    add.addActionListener(
+      new ActionListener() {
+
+        public void actionPerformed(
+            ActionEvent e) {
+
+          new AddItem(
+            frame,
+            dao,
+            new Runnable() {
+
+              public void run() {
+                inventory.reload();
+              }
+
+            }
+          ).setVisible(true);
+        }
+      }
+    );
+
+    inventory.topButtons.add(discontinue);
+    inventory.topButtons.add(reactivate);
     inventory.topButtons.add(add);
+
     return inventory.panel;
   }
 
@@ -267,7 +379,7 @@ public class ManagerGUI {
     if (selectedRow < 0) {
       JOptionPane.showMessageDialog(
         frame,
-        "Select an item in the table to remove."
+        "Select an inventory item to discontinue."
       );
       return;
     }

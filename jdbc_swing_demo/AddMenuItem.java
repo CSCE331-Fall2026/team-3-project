@@ -3,6 +3,12 @@ import java.awt.event.*;
 import java.sql.SQLException;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableModel;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import java.math.BigDecimal;
 
 public class AddMenuItem extends JDialog {
 
@@ -12,6 +18,10 @@ public class AddMenuItem extends JDialog {
   private JTextField nameField;
   private JTextField priceField;
   private JComboBox<String> categoryBox;
+  private List<InventoryDAO.Item> inventory = new ArrayList<InventoryDAO.Item>();
+  private DefaultTableModel recipeModel;
+  private JTable recipeTable;
+  private JButton addButton;
 
   public AddMenuItem(JFrame parent, InventoryDAO dao, Runnable onSuccess) {
     super(parent, "Add Menu Item", true);
@@ -36,16 +46,7 @@ public class AddMenuItem extends JDialog {
     nameField = new JTextField(20);
     priceField = new JTextField(10);
 
-    String[] categories = {
-      "Sides",
-      "Entrees",
-      "Appetizers",
-      "Meals",
-      "Extras",
-      "Drinks"
-    };
-
-    categoryBox = new JComboBox<String>(categories);
+    categoryBox = new JComboBox<String>(CashierGUI.CATEGORIES);
 
     gbc.gridx = 0;
     gbc.gridy = 0;
@@ -68,6 +69,22 @@ public class AddMenuItem extends JDialog {
     gbc.gridx = 1;
     panel.add(categoryBox, gbc);
 
+    recipeModel = new DefaultTableModel(new String[] {"Inventory item", "Unit", "Quantity per menu item"}, 0) {
+      public boolean isCellEditable(int row, int column) { return column == 2; }
+    };
+    recipeTable = new JTable(recipeModel);
+    recipeTable.putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
+    JScrollPane recipeScroll = new JScrollPane(recipeTable);
+    recipeScroll.setPreferredSize(new Dimension(520, 220));
+    gbc.gridx = 0;
+    gbc.gridy = 3;
+    gbc.gridwidth = 2;
+    panel.add(new JLabel("Recipe: enter quantities in the listed units; leave unused ingredients blank."), gbc);
+    gbc.gridy = 4;
+    panel.add(recipeScroll, gbc);
+    gbc.gridy = 5;
+    panel.add(new JLabel("Reactivating a discontinued item preserves its existing recipe."), gbc);
+
     JButton cancel = new JButton("Cancel");
     cancel.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
@@ -76,6 +93,7 @@ public class AddMenuItem extends JDialog {
     });
 
     JButton add = new JButton("Add Item");
+    addButton = add;
     add.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         addItem();
@@ -87,9 +105,18 @@ public class AddMenuItem extends JDialog {
     buttons.add(add);
 
     gbc.gridx = 0;
-    gbc.gridy = 3;
+    gbc.gridy = 6;
     gbc.gridwidth = 2;
     panel.add(buttons, gbc);
+    try {
+      inventory = dao.fetchAll();
+      for (InventoryDAO.Item item : inventory) {
+        recipeModel.addRow(new Object[] {item.name, item.unit, ""});
+      }
+    } catch (SQLException ex) {
+      addButton.setEnabled(false);
+      JOptionPane.showMessageDialog(this, "Could not load recipe ingredients: " + ex.getMessage());
+    }
 
     add(panel);
   }
@@ -99,10 +126,10 @@ public class AddMenuItem extends JDialog {
     String priceText = priceField.getText().trim();
     String category = (String) categoryBox.getSelectedItem();
 
-    if (name.isEmpty()) {
+    if (name.isEmpty() || name.length() > 150) {
       JOptionPane.showMessageDialog(
         this,
-        "Enter a menu item name."
+        "Enter a menu item name of at most 150 characters."
       );
       return;
     }
@@ -119,16 +146,33 @@ public class AddMenuItem extends JDialog {
       return;
     }
 
-    if (price < 0) {
+    if (!Double.isFinite(price) || price < 0 || price > 99999999.99) {
       JOptionPane.showMessageDialog(
         this,
-        "Price must be non-negative."
+        "Price must be finite and between 0 and 99,999,999.99."
       );
       return;
     }
 
+    if (recipeTable.isEditing() && !recipeTable.getCellEditor().stopCellEditing()) return;
+    Map<Integer, Double> ingredients = new LinkedHashMap<Integer, Double>();
+    for (int row = 0; row < recipeModel.getRowCount(); row++) {
+      Object value = recipeModel.getValueAt(row, 2);
+      String text = value == null ? "" : value.toString().trim();
+      if (text.isEmpty()) continue;
+      try {
+        BigDecimal qty = new BigDecimal(text);
+        if (qty.signum() <= 0 || qty.compareTo(new BigDecimal("9999999.999")) > 0 ||
+            qty.stripTrailingZeros().scale() > 3) throw new NumberFormatException();
+        ingredients.put(inventory.get(row).id, qty.doubleValue());
+      } catch (NumberFormatException ex) {
+        JOptionPane.showMessageDialog(this, "Quantity for " + inventory.get(row).name +
+            " must be positive, at most 9,999,999.999, with at most three decimal places.");
+        return;
+      }
+    }
     try {
-      dao.insertMenuItem(name, price, category);
+      dao.insertMenuItem(name, category, price, ingredients);
 
       if (onSuccess != null) {
         onSuccess.run();

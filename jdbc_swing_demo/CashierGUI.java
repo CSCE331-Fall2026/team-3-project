@@ -46,7 +46,6 @@ public class CashierGUI {
 
   // category name -> [min MenuItemID, max MenuItemID] in the MenuItem table
   static final String[] CATEGORIES = {"Sides", "Entrees", "Appetizers", "Meals", "Extras", "Drinks"};
-  static final String[] CATEGORIES = {"Sides", "Entrees", "Appetizers", "Meals", "Extras", "Drinks"};
 
   JFrame frame;
   JPanel itemsPanel;
@@ -173,9 +172,7 @@ public class CashierGUI {
     area.setOpaque(false);
 
     JPanel cats = new JPanel(new GridLayout(1, CATEGORIES.length, 6, 0));
-    JPanel cats = new JPanel(new GridLayout(1, CATEGORIES.length, 6, 0));
     cats.setOpaque(false);
-    for (final String cat : CATEGORIES) {
     for (final String cat : CATEGORIES) {
       JButton b = PandaTheme.secondaryButton(cat);
       b.addActionListener(new ActionListener() {
@@ -210,10 +207,18 @@ public class CashierGUI {
     List<Object[]> items = new ArrayList<Object[]>();
     try {
       PreparedStatement ps = conn.prepareStatement(
-        "SELECT MenuItemID, MenuItemName, Price FROM MenuItem " +
-        "WHERE Category = ? " +
-        "AND Active = TRUE " +
-        "ORDER BY MenuItemID"
+        "SELECT m.MenuItemID, m.MenuItemName, m.Price " +
+        "FROM MenuItem m " +
+        "WHERE m.Category = ? " +
+        "AND m.Active = TRUE " +
+        "AND NOT EXISTS (" +
+        "  SELECT 1 " +
+        "  FROM MenuItemInventory mii " +
+        "  JOIN Inventory i ON i.InventoryID = mii.InventoryID " +
+        "  WHERE mii.MenuItemID = m.MenuItemID " +
+        "  AND i.Active = FALSE" +
+        ") " +
+        "ORDER BY m.MenuItemID"
       );
 
       ps.setString(1, category);
@@ -410,22 +415,24 @@ public class CashierGUI {
     refreshTicket();
   }
 
-  // An item is available if it has no inventory mapping, or every mapped
-  // ingredient still has stock (contract: check inventory before selling).
+  // An item must be active, and every mapped ingredient must be active
+  // with enough stock for the requested quantity. Active unmapped items are available.
   boolean isAvailable(int menuItemId, int qtyWanted) {
-    try {
-      PreparedStatement ps = conn.prepareStatement(
-          "SELECT NOT EXISTS (" +
+    try (PreparedStatement ps = conn.prepareStatement(
+          "SELECT EXISTS (" +
+          "  SELECT 1 FROM MenuItem WHERE MenuItemID = ? AND Active = TRUE" +
+          ") AND NOT EXISTS (" +
           "  SELECT 1 FROM MenuItemInventory mii " +
           "  JOIN Inventory i ON i.InventoryID = mii.InventoryID " +
           "  WHERE mii.MenuItemID = ? " +
           "  AND (i.Active = FALSE " +
           "       OR i.Quantity < mii.QuantityRequired * ?)" +
           ") AS ok"
-      );
+      )) {
 
       ps.setInt(1, menuItemId);
-      ps.setInt(2, qtyWanted);
+      ps.setInt(2, menuItemId);
+      ps.setInt(3, qtyWanted);
       try (ResultSet rs = ps.executeQuery()){
         rs.next();
         return rs.getBoolean("ok");
