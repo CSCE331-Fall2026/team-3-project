@@ -10,6 +10,12 @@ import java.util.Map;
 import java.util.LinkedHashMap;
 import java.math.BigDecimal;
 
+/*
+ * Form for adding a brand-new Menu item.
+ *
+ * Discontinued menu items should be restored using
+ * ReactivateMenuItem instead of being inserted again.
+ */
 public class AddMenuItem extends JDialog {
 
   private final InventoryDAO dao;
@@ -35,6 +41,7 @@ public class AddMenuItem extends JDialog {
     setLocationRelativeTo(parent);
   }
 
+  // Builds the UI for the AddMenuItem dialog
   private void build() {
     JPanel panel = new JPanel(new GridBagLayout());
     panel.setBorder(new EmptyBorder(16, 16, 16, 16));
@@ -121,6 +128,7 @@ public class AddMenuItem extends JDialog {
     add(panel);
   }
 
+  // Validates the form and adds the menu item if all inputs are correct
   private void addItem() {
     String name = nameField.getText().trim();
     String priceText = priceField.getText().trim();

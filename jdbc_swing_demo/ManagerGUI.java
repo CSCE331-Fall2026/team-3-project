@@ -40,6 +40,7 @@ public class ManagerGUI {
     dao = new InventoryDAO(c);
   }
 
+  // Builds the main GUI layout for the manager interface
   void build() {
     frame = new JFrame("Panda Express - Manager");
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -96,6 +97,7 @@ public class ManagerGUI {
     return nav;
   }
 
+  // Switches the currently displayed page in the main content area
   void showPage(String name) {
     cards.show(pages, name);
     for (String n : navButtons.keySet()) {
@@ -109,6 +111,7 @@ public class ManagerGUI {
     }
   }
 
+  // Returns to mode selection, warning about unsaved changes
   void switchMode() {
     inventory.stopEditing();
     menu.stopEditing();
@@ -121,6 +124,7 @@ public class ManagerGUI {
     new ModeSelect(db).build();
   }
 
+  // Creates a placeholder panel with a title
   JPanel placeholder(String title) {
     JPanel p = new JPanel(new BorderLayout());
     p.setBackground(PandaTheme.WHITE);
@@ -132,7 +136,7 @@ public class ManagerGUI {
   // Inventory page: Item | Amount | Unit | Status | Unsaved
   JPanel buildInventoryPage() {
 
-    TableEdit<InventoryDAO.Item> m =
+    TableEdit<InventoryDAO.Item> tableModel =
       new TableEdit<InventoryDAO.Item>(
         new String[] {"Item", "Amount", "Unit", "Status", "Unsaved"}) {
 
@@ -164,7 +168,7 @@ public class ManagerGUI {
         "Inventory",
         null,
         "items",
-        m,
+        tableModel,
         "",
         new int[] {
           280,
@@ -280,7 +284,7 @@ public class ManagerGUI {
 
   // Menu page: Menu Item | Price | Unsaved
   JPanel buildMenuPage() {
-    TableEdit<InventoryDAO.MenuItem> m = new TableEdit<InventoryDAO.MenuItem>(
+    TableEdit<InventoryDAO.MenuItem> tableModel = new TableEdit<InventoryDAO.MenuItem>(
         new String[] {"Menu Item", "Price", "Unsaved"}) {
       int id(InventoryDAO.MenuItem it) { return it.id; }
       double value(InventoryDAO.MenuItem it) { return it.price; }
@@ -288,7 +292,7 @@ public class ManagerGUI {
     };
     menu = new TablePage<InventoryDAO.MenuItem>(frame, "Menu Prices",
         "New prices apply to future orders only. Past orders keep the totals they were charged.",
-        "menu items", m, "$", new int[] {420, 120, 90}) {
+        "menu items", tableModel, "$", new int[] {420, 120, 90}) {
       List<InventoryDAO.MenuItem> load() throws SQLException { return dao.fetchMenuItems(); }
       void store(Map<Integer, Double> changes) throws SQLException {
         dao.updatePrices(changes);
@@ -371,6 +375,7 @@ public class ManagerGUI {
     }
   }
 
+  // Discontinue selected inventory item
   void removeSelected() {
     inventory.stopEditing();
 

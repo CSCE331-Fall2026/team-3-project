@@ -79,18 +79,24 @@ public abstract class TablePage<T> {
     panel.add(bottom, BorderLayout.SOUTH);
   }
 
+  // Loads the list of items from the database
   abstract List<T> load() throws SQLException;
+
+  // Stores the changes to the database
   abstract void store(Map<Integer, Double> changes) throws SQLException;
 
-  // Override to ask before saving.
+  // Override to ask before saving
   boolean confirmSave(int n) { return true; }
 
+  // Stops any ongoing cell editing in the table
   void stopEditing() {
     if (table.isEditing()) table.getCellEditor().stopCellEditing();
   }
 
+  // Returns true if there are unsaved changes in the table
   boolean hasUnsaved() { return !model.pending.isEmpty(); }
 
+  // Reloads the table from the database
   void reload() {
     try {
       model.setItems(load());
@@ -100,6 +106,7 @@ public abstract class TablePage<T> {
     }
   }
 
+  // Refreshes the table, optionally discarding unsaved changes
   void refresh() {
     stopEditing();
     if (!hasUnsaved() || JOptionPane.showConfirmDialog(parent,
@@ -109,6 +116,7 @@ public abstract class TablePage<T> {
     }
   }
 
+  // Saves the changes to the database
   void save() {
     stopEditing();
     int n = model.pending.size();
@@ -126,6 +134,7 @@ public abstract class TablePage<T> {
     }
   }
 
+  // Updates the label showing the number of unsaved changes
   void updateUnsavedLabel() {
     int n = model.pending.size();
     if (n == 0) {

@@ -41,10 +41,10 @@ public class CashierGUI {
   // 4-digit PIN required to switch from the cashier side to the manager side
   static final String MANAGER_PIN = "1234";
 
-  // size suffixes used to group drinks ("NAME - SIZE"); MEDDIUM is a typo in the data
+  // Size suffixes used to group drinks ("NAME - SIZE"); MEDDIUM is a typo in the data
   static final String[] SIZES = {"KIDS", "SMALL", "MEDIUM", "MEDDIUM", "LARGE"};
 
-  // category name -> [min MenuItemID, max MenuItemID] in the MenuItem table
+  // List of menu item categories.
   static final String[] CATEGORIES = {"Sides", "Entrees", "Appetizers", "Meals", "Extras", "Drinks"};
 
   JFrame frame;
@@ -64,6 +64,7 @@ public class CashierGUI {
     });
   }
 
+  // Opens the shared database connection, or exits if it fails
   static void openConnection(dbSetup credentials) {
     try {
       conn = DriverManager.getConnection(
@@ -76,10 +77,12 @@ public class CashierGUI {
     }
   }
 
+  // Closes the shared database connection, ignoring any exceptions
   static void closeConnection() {
     try { conn.close(); } catch (Exception e) { /* ignore */ }
   }
 
+  // Builds the main GUI layout for the cashier interface
   void build() {
     frame = new JFrame("Panda Express - Cashier");
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -194,6 +197,7 @@ public class CashierGUI {
     return area;
   }
 
+  // Displays the menu items for the specified category
   void showCategory(String category) {
     for (String c : catButtons.keySet()) {
       if (c.equals(category)) {
@@ -235,7 +239,7 @@ public class CashierGUI {
     else showItemGrid(items);
   }
 
-  // Flat grid: one button per menu item.
+  // Flat grid: one button per menu item
   void showItemGrid(List<Object[]> items) {
     itemsPanel.removeAll();
     for (Object[] it : items) {
@@ -275,7 +279,7 @@ public class CashierGUI {
     itemsPanel.repaint();
   }
 
-  // Size picker for one drink: back button, then one button per size.
+  // Size picker for one drink: back button, then one button per size
   void showSizeGrid(String base, List<Object[]> sizes) {
     List<Object[]> sorted = new ArrayList<Object[]>(sizes);
     Collections.sort(sorted, new Comparator<Object[]>() {
@@ -297,7 +301,7 @@ public class CashierGUI {
     itemsPanel.repaint();
   }
 
-  // Drink name without the size suffix ("COCA-COLA - SMALL" -> "COCA-COLA").
+  // Drink name without the size suffix ("COCA-COLA - SMALL" -> "COCA-COLA")
   static String baseName(String name) {
     int i = name.lastIndexOf(" - ");
     if (i < 0) return name;
@@ -308,13 +312,14 @@ public class CashierGUI {
     return name;
   }
 
-  // Title-cased size for the button label ("... - MEDDIUM" -> "Medium").
+  // Title-cased size for the button label ("... - MEDDIUM" -> "Medium")
   static String sizeLabel(String name) {
     String s = name.substring(name.lastIndexOf(" - ") + 3);
     if (s.equals("MEDDIUM")) s = "MEDIUM";
     return s.charAt(0) + s.substring(1).toLowerCase();
   }
 
+  // Returns the relative order of a size for sorting purposes
   static int sizeOrder(String name) {
     String s = name.substring(name.lastIndexOf(" - ") + 3);
     if (s.equals("KIDS")) return 0;
@@ -324,6 +329,7 @@ public class CashierGUI {
     return 4;
   }
 
+  // Creates a grid button with the specified label
   JButton gridButton(String label) {
     JButton b = PandaTheme.secondaryButton("<html><center>" + label + "</center></html>");
     b.setFont(PandaTheme.SMALL);
@@ -332,7 +338,7 @@ public class CashierGUI {
     return b;
   }
 
-  // Item button: shows label + price, adds id/name to the ticket on click.
+  // Item button: shows label + price, adds id/name to the ticket on click
   JButton itemButton(final int id, final String name, final double price, String label) {
     JButton b = gridButton(label + "<br>$" + String.format("%.2f", price));
     b.addActionListener(new ActionListener() {
@@ -403,10 +409,12 @@ public class CashierGUI {
     return ticket;
   }
 
+  // Adds an item to the order, updating the ticket display
+  // If the item is not available, a message dialog is shown
   void addItem(int id, String name, double price) {
     Object[] line = orderLines.get(id);
-    int in_cart = (line == null) ? 0 : (Integer) line[2];
-    if (!isAvailable(id, in_cart + 1)) {
+    int inCart = (line == null) ? 0 : (Integer) line[2];
+    if (!isAvailable(id, inCart + 1)) {
       JOptionPane.showMessageDialog(frame, name + " is out of stock.");
       return;
     }
@@ -416,7 +424,7 @@ public class CashierGUI {
   }
 
   // An item must be active, and every mapped ingredient must be active
-  // with enough stock for the requested quantity. Active unmapped items are available.
+  // with enough stock for the requested quantity. Active unmapped items are available
   boolean isAvailable(int menuItemId, int qtyWanted) {
     try (PreparedStatement ps = conn.prepareStatement(
           "SELECT EXISTS (" +
@@ -448,6 +456,7 @@ public class CashierGUI {
       }
   }
 
+  // Calculates the subtotal of all items in the current order
   double subtotal() {
     double sum = 0;
     for (Object[] line : orderLines.values())
@@ -455,6 +464,7 @@ public class CashierGUI {
     return sum;
   }
 
+  // Refreshes the ticket display, including subtotal, tax, and total
   void refreshTicket() {
     ticketModel.clear();
     for (Object[] line : orderLines.values()) {

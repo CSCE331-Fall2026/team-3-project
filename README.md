@@ -59,6 +59,7 @@ Run with:
 > cd ..  
 
 ## Manager GUI
+
 Compile with:
 > cd jdbc_swing_demo  
 > javac -cp ".:postgresql-42.2.8.jar" dbSetup.java InventoryDAO.java ManagerGUI.java  
@@ -68,4 +69,3 @@ Run with:
 > cd jdbc_swing_demo  
 > java -cp ".:postgresql-42.2.8.jar" ManagerGUI  
 > cd ..  
-

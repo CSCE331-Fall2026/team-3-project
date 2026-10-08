@@ -73,6 +73,7 @@ public class ReactivateItem extends JDialog {
     setLocationRelativeTo(owner);
   }
 
+  // Builds the GUI for the dialog
   private void build() {
 
     JPanel root = new JPanel(new BorderLayout(0, 12));
@@ -219,6 +220,7 @@ public class ReactivateItem extends JDialog {
     add(root);
   }
 
+  // Adds a row to the form panel with a label and a field
   private void addRow(
       JPanel panel,
       GridBagConstraints c,
@@ -248,6 +250,7 @@ public class ReactivateItem extends JDialog {
     panel.add(field, c);
   }
 
+  // Updates the details of the selected inventory item in the form fields
   private void updateItemDetails() {
 
     int index = itemBox.getSelectedIndex();
@@ -272,6 +275,7 @@ public class ReactivateItem extends JDialog {
     quantityField.setText("");
   }
 
+  // Reactivates the selected inventory item after confirming the starting quantity
   private void reactivateSelectedItem() {
 
     int index = itemBox.getSelectedIndex();
@@ -333,6 +337,7 @@ public class ReactivateItem extends JDialog {
     }
   }
 
+  // Parses a non-negative double from the given text, returning null if invalid
   private static Double parseNonNegative(String text) {
 
     try {

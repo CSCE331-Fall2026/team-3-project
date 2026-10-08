@@ -58,17 +58,17 @@ public class AddItem extends JDialog {
       shelfLife
     };
 
-    GridBagConstraints c = new GridBagConstraints();
-    c.insets = new Insets(5, 0, 5, 12);
-    c.anchor = GridBagConstraints.WEST;
+    GridBagConstraints constraints = new GridBagConstraints();
+    constraints.insets = new Insets(5, 0, 5, 12);
+    constraints.anchor = GridBagConstraints.WEST;
 
     for (int i = 0; i < labels.length; i++) {
 
-      c.gridy = i;
+      constraints.gridy = i;
 
-      c.gridx = 0;
-      c.weightx = 0;
-      c.fill = GridBagConstraints.NONE;
+      constraints.gridx = 0;
+      constraints.weightx = 0;
+      constraints.fill = GridBagConstraints.NONE;
 
       form.add(
         PandaTheme.label(
@@ -76,14 +76,14 @@ public class AddItem extends JDialog {
           PandaTheme.BOLD,
           PandaTheme.BLACK
         ),
-        c
+        constraints
       );
 
-      c.gridx = 1;
-      c.weightx = 1;
-      c.fill = GridBagConstraints.HORIZONTAL;
+      constraints.gridx = 1;
+      constraints.weightx = 1;
+      constraints.fill = GridBagConstraints.HORIZONTAL;
 
-      form.add(fields[i], c);
+      form.add(fields[i], constraints);
     }
 
     root.add(form, BorderLayout.CENTER);
@@ -137,23 +137,17 @@ public class AddItem extends JDialog {
 
         if (itemName.isEmpty()) {
           err = "Item name is required.";
-        }
-        else if (itemName.length() > 100) {
+        } else if (itemName.length() > 100) {
           err = "Item name is too long (max 100 characters).";
-        }
-        else if (itemUnit.isEmpty()) {
+        } else if (itemUnit.isEmpty()) {
           err = "Unit is required.";
-        }
-        else if (itemUnit.length() > 20) {
+        } else if (itemUnit.length() > 20) {
           err = "Unit is too long (max 20 characters).";
-        }
-        else if (minThreshold == null) {
+        } else if (minThreshold == null) {
           err = "Minimum threshold must be a non-negative number.";
-        }
-        else if (startingQuantity == null) {
+        } else if (startingQuantity == null) {
           err = "Starting quantity must be a non-negative number.";
-        }
-        else if (shelfLifeDays == null) {
+        } else if (shelfLifeDays == null) {
           err = "Shelf life must be a non-negative whole number.";
         }
 
@@ -199,6 +193,7 @@ public class AddItem extends JDialog {
     setLocationRelativeTo(owner);
   }
 
+  // Parses a non-negative double from a string
   static Double parseNonNegative(String text) {
     try {
       double d = Double.parseDouble(text.trim());
@@ -218,6 +213,7 @@ public class AddItem extends JDialog {
     }
   }
 
+  // Parses a non-negative integer from a string
   static Integer parseNonNegativeInt(String text) {
     try {
       int value = Integer.parseInt(text.trim());

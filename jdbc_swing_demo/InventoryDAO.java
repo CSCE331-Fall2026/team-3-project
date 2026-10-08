@@ -9,8 +9,13 @@ import java.util.Map;
  *   fetchAll()          - every Inventory row, ordered by name
  *   updateQuantities()  - batch update of Quantity for a set of items (one transaction)
  *   insertItem()        - add a new Inventory row; InventoryID = MAX + 1
+ *   fetchInactiveItems() - every inactive Inventory row, ordered by name
+ *   reactivateInventoryItem() - restore a previously deleted Inventory row by setting its Active flag to TRUE
+ *   discontinueInventoryItem() - remove a previously active Inventory row by setting its Active flag to FALSE
  *   fetchMenuItems()    - every MenuItem row, ordered by MenuItemID
  *   updatePrices()      - batch update of Price for a set of menu items (one transaction)
+ *   insertMenuItem()    - add a new MenuItem row; MenuItemID = MAX + 1
+ *   discontinueMenuItem() - remove a previously active MenuItem row by setting its Active flag to FALSE
  *
  * A new price applies to orders placed after it is saved. Past orders are not
  * touched: their totals are already stored in Orders.Total.
@@ -22,7 +27,7 @@ public class InventoryDAO {
 
   static final String THRESHOLD_COL = "Minimum_Threshold";
 
-  // One Inventory row.
+  // One Inventory row
   public static class Item {
     public int id;
     public String name;
@@ -32,10 +37,12 @@ public class InventoryDAO {
     public int shelfLifeDays;
 
     // "low" means at or below the minimum threshold
-    public boolean isLow() { return quantity <= threshold; }
+    public boolean isLow() {
+      return quantity <= threshold;
+    }
   }
 
-  // One MenuItem row.
+  // One MenuItem row
   public static class MenuItem {
     public int id;
     public String name;
@@ -45,16 +52,19 @@ public class InventoryDAO {
 
   private final Connection conn;
 
-  public InventoryDAO(Connection conn) { this.conn = conn; }
+  public InventoryDAO(Connection conn) {
+    this.conn = conn;
+  }
 
+  // Fetches all active inventory items from the database, ordered by name
   public List<Item> fetchAll() throws SQLException {
     List<Item> items = new ArrayList<Item>();
     Statement st = conn.createStatement();
     ResultSet rs = st.executeQuery(
-      "SELECT InventoryID, ItemName, Unit, " + THRESHOLD_COL + ", Quantity, ShelfLifeDays " +
-      "FROM Inventory " +
-      "WHERE Active = TRUE " +
-      "ORDER BY ItemName");
+        "SELECT InventoryID, ItemName, Unit, " + THRESHOLD_COL + ", Quantity, ShelfLifeDays " +
+            "FROM Inventory " +
+            "WHERE Active = TRUE " +
+            "ORDER BY ItemName");
     while (rs.next()) {
       Item it = new Item();
       it.id = rs.getInt("InventoryID");
@@ -65,16 +75,19 @@ public class InventoryDAO {
       it.shelfLifeDays = rs.getInt("ShelfLifeDays");
       items.add(it);
     }
-    rs.close(); st.close();
+    rs.close();
+    st.close();
     return items;
   }
 
+  // Updates the quantities of inventory items in a single transaction
   public void updateQuantities(Map<Integer, Double> changes) throws SQLException {
-    if (changes.isEmpty()) return;
+    if (changes.isEmpty())
+      return;
     try {
       conn.setAutoCommit(false);
       PreparedStatement ps = conn.prepareStatement(
-        "UPDATE Inventory SET Quantity = ? WHERE InventoryID = ?");
+          "UPDATE Inventory SET Quantity = ? WHERE InventoryID = ?");
       for (Map.Entry<Integer, Double> e : changes.entrySet()) {
         ps.setDouble(1, e.getValue());
         ps.setInt(2, e.getKey());
@@ -84,118 +97,120 @@ public class InventoryDAO {
       ps.close();
       conn.commit();
     } catch (SQLException ex) {
-      try { conn.rollback(); } catch (SQLException ignored) {}
+      try {
+        conn.rollback();
+      } catch (SQLException ignored) {
+      }
       throw ex;
     } finally {
-      try { conn.setAutoCommit(true); } catch (SQLException ignored) {}
+      try {
+        conn.setAutoCommit(true);
+      } catch (SQLException ignored) {
+      }
     }
   }
 
-public int insertItem(
-        String name,
-        String unit,
-        double threshold,
-        double quantity,
-        int shelfLifeDays
-    ) throws SQLException {
+  // Inserts a new inventory item into the database, ensuring no duplicate active items exist
+  public int insertItem(
+      String name,
+      String unit,
+      double threshold,
+      double quantity,
+      int shelfLifeDays) throws SQLException {
 
-      if (!conn.getAutoCommit()) {
-        throw new SQLException("A transaction is already in progress.");
-      }
+    if (!conn.getAutoCommit()) {
+      throw new SQLException("A transaction is already in progress.");
+    }
 
-      try {
-        conn.setAutoCommit(false);
+    try {
+      conn.setAutoCommit(false);
 
-        // Do not allow another row with the same name, even if it is inactive.
-        // Inactive items should be restored through the Reactivate Item button.
-        try (PreparedStatement check = conn.prepareStatement(
-            "SELECT InventoryID, Active " +
-            "FROM Inventory " +
-            "WHERE LOWER(ItemName) = LOWER(?)")) {
+      // Do not allow another row with the same name, even if it is inactive
+      // Inactive items should be restored through the Reactivate Item button
+      try (PreparedStatement check = conn.prepareStatement(
+          "SELECT InventoryID, Active " +
+              "FROM Inventory " +
+              "WHERE LOWER(ItemName) = LOWER(?)")) {
 
-          check.setString(1, name);
+        check.setString(1, name);
 
-          try (ResultSet rs = check.executeQuery()) {
-            if (rs.next()) {
-              boolean active = rs.getBoolean("Active");
+        try (ResultSet rs = check.executeQuery()) {
+          if (rs.next()) {
+            boolean active = rs.getBoolean("Active");
 
-              if (active) {
-                throw new SQLException(
-                  "An active inventory item named \"" + name + "\" already exists."
-                );
-              } else {
-                throw new SQLException(
-                  "\"" + name + "\" is discontinued. Use the Reactivate Item button instead."
-                );
-              }
+            if (active) {
+              throw new SQLException(
+                  "An active inventory item named \"" + name + "\" already exists.");
+            } else {
+              throw new SQLException(
+                  "\"" + name + "\" is discontinued. Use the Reactivate Item button instead.");
             }
           }
         }
+      }
 
-        int id;
+      int id;
 
-        try (
+      try (
           Statement st = conn.createStatement();
           ResultSet rs = st.executeQuery(
-            "SELECT COALESCE(MAX(InventoryID), 0) + 1 FROM Inventory"
-          )
-        ) {
-          rs.next();
-          id = rs.getInt(1);
-        }
+              "SELECT COALESCE(MAX(InventoryID), 0) + 1 FROM Inventory")) {
+        rs.next();
+        id = rs.getInt(1);
+      }
 
-        try (PreparedStatement insert = conn.prepareStatement(
-            "INSERT INTO Inventory (" +
-            "InventoryID, ItemName, Unit, " +
-            THRESHOLD_COL + ", Quantity, ShelfLifeDays, Active" +
-            ") VALUES (?, ?, ?, ?, ?, ?, TRUE)")) {
+      try (PreparedStatement insert = conn.prepareStatement(
+          "INSERT INTO Inventory (" +
+              "InventoryID, ItemName, Unit, " +
+              THRESHOLD_COL + ", Quantity, ShelfLifeDays, Active" +
+              ") VALUES (?, ?, ?, ?, ?, ?, TRUE)")) {
 
-          insert.setInt(1, id);
-          insert.setString(2, name);
-          insert.setString(3, unit);
-          insert.setDouble(4, threshold);
-          insert.setDouble(5, quantity);
-          insert.setInt(6, shelfLifeDays);
+        insert.setInt(1, id);
+        insert.setString(2, name);
+        insert.setString(3, unit);
+        insert.setDouble(4, threshold);
+        insert.setDouble(5, quantity);
+        insert.setInt(6, shelfLifeDays);
 
-          insert.executeUpdate();
-        }
+        insert.executeUpdate();
+      }
 
-        conn.commit();
+      conn.commit();
 
-        return id;
+      return id;
 
-      } catch (SQLException | RuntimeException ex) {
+    } catch (SQLException | RuntimeException ex) {
 
-        try {
-          conn.rollback();
-        } catch (SQLException rollback) {
-          ex.addSuppressed(rollback);
-        }
+      try {
+        conn.rollback();
+      } catch (SQLException rollback) {
+        ex.addSuppressed(rollback);
+      }
 
-        throw ex;
+      throw ex;
 
-      } finally {
+    } finally {
 
-        try {
-          conn.setAutoCommit(true);
-        } catch (SQLException ignored) {}
+      try {
+        conn.setAutoCommit(true);
+      } catch (SQLException ignored) {
       }
     }
+  }
 
-    public List<Item> fetchInactiveItems() throws SQLException {
+  // Fetches all inactive inventory items from the database, ordered by name
+  public List<Item> fetchInactiveItems() throws SQLException {
     List<Item> items = new ArrayList<Item>();
 
     try (
-      PreparedStatement ps = conn.prepareStatement(
-        "SELECT InventoryID, ItemName, Unit, " +
-        THRESHOLD_COL + ", Quantity, ShelfLifeDays " +
-        "FROM Inventory " +
-        "WHERE Active = FALSE " +
-        "ORDER BY ItemName"
-      );
+        PreparedStatement ps = conn.prepareStatement(
+            "SELECT InventoryID, ItemName, Unit, " +
+                THRESHOLD_COL + ", Quantity, ShelfLifeDays " +
+                "FROM Inventory " +
+                "WHERE Active = FALSE " +
+                "ORDER BY ItemName");
 
-      ResultSet rs = ps.executeQuery()
-    ) {
+        ResultSet rs = ps.executeQuery()) {
 
       while (rs.next()) {
         Item it = new Item();
@@ -212,37 +227,37 @@ public int insertItem(
     }
 
     return items;
-}
+  }
 
-public void reactivateInventoryItem(
-    int inventoryId,
-    double startingQuantity
-) throws SQLException {
+  // Reactivates an inactive inventory item, setting its starting quantity and marking it as active
+  public void reactivateInventoryItem(
+      int inventoryId,
+      double startingQuantity) throws SQLException {
 
-  try (PreparedStatement ps = conn.prepareStatement(
-      "UPDATE Inventory " +
-      "SET Quantity = ?, Active = TRUE " +
-      "WHERE InventoryID = ? " +
-      "AND Active = FALSE")) {
+    try (PreparedStatement ps = conn.prepareStatement(
+        "UPDATE Inventory " +
+            "SET Quantity = ?, Active = TRUE " +
+            "WHERE InventoryID = ? " +
+            "AND Active = FALSE")) {
 
-    ps.setDouble(1, startingQuantity);
-    ps.setInt(2, inventoryId);
+      ps.setDouble(1, startingQuantity);
+      ps.setInt(2, inventoryId);
 
-    int rowsUpdated = ps.executeUpdate();
+      int rowsUpdated = ps.executeUpdate();
 
-    if (rowsUpdated == 0) {
-      throw new SQLException(
-        "This inventory item could not be reactivated. " +
-        "It may already be active."
-      );
+      if (rowsUpdated == 0) {
+        throw new SQLException(
+            "This inventory item could not be reactivated. " +
+                "It may already be active.");
+      }
     }
   }
-}
 
-  // Creates a menu item and its recipe atomically; reactivation preserves its recipe.
+  // Creates a menu item and its recipe atomically; reactivation preserves its recipe
   public int insertMenuItem(String name, String category, double price,
-                            Map<Integer, Double> ingredients) throws SQLException {
-    if (!conn.getAutoCommit()) throw new SQLException("A transaction is already in progress.");
+      Map<Integer, Double> ingredients) throws SQLException {
+    if (!conn.getAutoCommit())
+      throw new SQLException("A transaction is already in progress.");
     try {
       conn.setAutoCommit(false);
       Integer existingId = null;
@@ -254,7 +269,8 @@ public void reactivateInventoryItem(
             if (rs.getBoolean("Active")) {
               throw new SQLException("An active menu item named \"" + name + "\" already exists.");
             }
-            if (existingId != null) throw new SQLException("Multiple discontinued items have this name.");
+            if (existingId != null)
+              throw new SQLException("Multiple discontinued items have this name.");
             existingId = rs.getInt("MenuItemID");
           }
         }
@@ -271,7 +287,7 @@ public void reactivateInventoryItem(
         return existingId;
       }
 
-      // Validate and lock selected ingredients until the recipe is saved.
+      // Validate and lock selected ingredients until the recipe is saved
       try (PreparedStatement check = conn.prepareStatement(
           "SELECT Active FROM Inventory WHERE InventoryID = ? FOR UPDATE")) {
         for (Map.Entry<Integer, Double> e : ingredients.entrySet()) {
@@ -290,7 +306,7 @@ public void reactivateInventoryItem(
       }
       int id;
       try (Statement st = conn.createStatement();
-           ResultSet rs = st.executeQuery("SELECT COALESCE(MAX(MenuItemID), 0) + 1 FROM MenuItem")) {
+          ResultSet rs = st.executeQuery("SELECT COALESCE(MAX(MenuItemID), 0) + 1 FROM MenuItem")) {
         rs.next();
         id = rs.getInt(1);
       }
@@ -315,22 +331,28 @@ public void reactivateInventoryItem(
       conn.commit();
       return id;
     } catch (SQLException | RuntimeException ex) {
-      try { conn.rollback(); } catch (SQLException rollback) { ex.addSuppressed(rollback); }
+      try {
+        conn.rollback();
+      } catch (SQLException rollback) {
+        ex.addSuppressed(rollback);
+      }
       throw ex;
     } finally {
       conn.setAutoCommit(true);
     }
   }
 
+  // Inserts a new menu item without any ingredients
   public int insertMenuItem(String name, double price, String category) throws SQLException {
     return insertMenuItem(name, category, price, java.util.Collections.<Integer, Double>emptyMap());
   }
 
+  // Fetches all active menu items from the database, ordered by ID
   public List<MenuItem> fetchMenuItems() throws SQLException {
     List<MenuItem> items = new ArrayList<MenuItem>();
     Statement st = conn.createStatement();
     ResultSet rs = st.executeQuery(
-      "SELECT MenuItemID, MenuItemName, Price FROM MenuItem WHERE Active = TRUE ORDER BY MenuItemID");
+        "SELECT MenuItemID, MenuItemName, Price FROM MenuItem WHERE Active = TRUE ORDER BY MenuItemID");
     while (rs.next()) {
       MenuItem it = new MenuItem();
       it.id = rs.getInt("MenuItemID");
@@ -338,16 +360,19 @@ public void reactivateInventoryItem(
       it.price = rs.getDouble("Price");
       items.add(it);
     }
-    rs.close(); st.close();
+    rs.close();
+    st.close();
     return items;
   }
 
+  // Updates the prices of multiple menu items in a single transaction
   public void updatePrices(Map<Integer, Double> changes) throws SQLException {
-    if (changes.isEmpty()) return;
+    if (changes.isEmpty()) 
+      return;
     try {
       conn.setAutoCommit(false);
       PreparedStatement ps = conn.prepareStatement(
-        "UPDATE MenuItem SET Price = ? WHERE MenuItemID = ?");
+          "UPDATE MenuItem SET Price = ? WHERE MenuItemID = ?");
       for (Map.Entry<Integer, Double> e : changes.entrySet()) {
         ps.setDouble(1, e.getValue());
         ps.setInt(2, e.getKey());
@@ -357,17 +382,23 @@ public void reactivateInventoryItem(
       ps.close();
       conn.commit();
     } catch (SQLException ex) {
-      try { conn.rollback(); } catch (SQLException ignored) {}
+      try {
+        conn.rollback();
+      } catch (SQLException ignored) {
+      }
       throw ex;
     } finally {
-      try { conn.setAutoCommit(true); } catch (SQLException ignored) {}
+      try {
+        conn.setAutoCommit(true);
+      } catch (SQLException ignored) {
+      }
     }
   }
-  
+
+  // Discontinues a menu item by setting its Active flag to FALSE
   public void discontinueMenuItem(int menuItemId) throws SQLException {
     PreparedStatement ps = conn.prepareStatement(
-      "UPDATE MenuItem SET Active = FALSE WHERE MenuItemID = ?"
-    );
+        "UPDATE MenuItem SET Active = FALSE WHERE MenuItemID = ?");
 
     ps.setInt(1, menuItemId);
 
@@ -376,15 +407,14 @@ public void reactivateInventoryItem(
 
     if (rowsUpdated == 0) {
       throw new SQLException(
-        "No menu item found with ID " + menuItemId
-      );
+          "No menu item found with ID " + menuItemId);
     }
   }
 
+  // Discontinues an inventory item by setting its Active flag to FALSE
   public void discontinueInventoryItem(int inventoryId) throws SQLException {
     PreparedStatement ps = conn.prepareStatement(
-      "UPDATE Inventory SET Active = FALSE WHERE InventoryID = ?"
-    );
+        "UPDATE Inventory SET Active = FALSE WHERE InventoryID = ?");
 
     ps.setInt(1, inventoryId);
 
@@ -393,10 +423,8 @@ public void reactivateInventoryItem(
 
     if (rowsUpdated == 0) {
       throw new SQLException(
-        "No inventory item found with ID " + inventoryId
-      );
+          "No inventory item found with ID " + inventoryId);
     }
   }
 }
-
-
+  

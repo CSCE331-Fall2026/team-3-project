@@ -27,6 +27,7 @@ public class ModeSelect {
     });
   }
 
+  // Opens a connection to the database using the provided credentials
   static void openConnection(dbSetup credentials) {
     try {
       conn = DriverManager.getConnection(
@@ -39,6 +40,7 @@ public class ModeSelect {
     }
   }
 
+  // Closes the database connection if it is open
   static void closeConnection() {
     try { conn.close(); } catch (Exception e) { /* ignore */ }
   }
@@ -47,6 +49,7 @@ public class ModeSelect {
     db = c;
   }
 
+  // Builds the main frame for selecting the mode (Cashier or Manager)
   void build() {
     frame = new JFrame("Panda Express - Select Mode");
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -98,6 +101,7 @@ public class ModeSelect {
     frame.setVisible(true);
   }
 
+  // Opens the Cashier GUI and closes the current frame
   void openCashier() {
     frame.dispose();
     PandaTheme.useJavaLook();
@@ -105,6 +109,7 @@ public class ModeSelect {
     new CashierGUI().build();
   }
 
+  // Opens the Manager GUI and closes the current frame
   void openManager() {
     frame.dispose();
     new ManagerGUI(db).build();

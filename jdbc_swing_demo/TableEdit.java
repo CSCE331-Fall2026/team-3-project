@@ -13,20 +13,23 @@ public abstract class TableEdit<T> extends AbstractTableModel {
   final String[] cols;
   List<T> items = new ArrayList<T>();
   LinkedHashMap<Integer, Double> pending = new LinkedHashMap<Integer, Double>();
-  Component parent; 
+  Component parent;
 
   TableEdit(String[] cols) { this.cols = cols; }
 
+  // These methods must be implemented by subclasses to provide access to item properties
   abstract int id(T item);
   abstract double value(T item);
   abstract Object cell(T item, int col);
 
+  // Replaces the table's items with a new list
   void setItems(List<T> newItems) {
     items = newItems;
     pending.clear();
     fireTableDataChanged();
   }
 
+  // Returns true if the specified row has pending edits
   boolean isPending(int r) { return pending.containsKey(id(items.get(r))); }
 
   public int getRowCount() { return items.size(); }
@@ -39,6 +42,7 @@ public abstract class TableEdit<T> extends AbstractTableModel {
 
   public boolean isCellEditable(int r, int c) { return c == 1; }
 
+  // Returns the value for the specified cell, using pending edits if available
   public Object getValueAt(int r, int c) {
     T it = items.get(r);
     int id = id(it);
@@ -47,6 +51,7 @@ public abstract class TableEdit<T> extends AbstractTableModel {
     return cell(it, c);
   }
 
+  // Sets the value for the specified cell, storing it in pending edits if changed
   public void setValueAt(Object v, int r, int c) {
     if (c != 1 || v == null) return;
     double d = (Double) v;
