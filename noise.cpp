@@ -157,7 +157,7 @@ void print_inventory_update(int inventoryID, double quantity) {
          << quantity
          << " WHERE InventoryID = "
          << inventoryID
-         << ";\n";
+         << " AND Active = TRUE;\n";
 }
 
 bool consume_inventory_fifo(int inventoryID, double amount, map<int, double> &base_inventory, map<int, deque<Shipment>> &shipments) {
@@ -206,7 +206,7 @@ bool consume_menu_item(int menuItemID, int qty, const map<int, vector<MenuItemIn
     auto it = recipe_map.find(menuItemID);
 
     if (it == recipe_map.end()) {
-        return false;
+        return true; // Items without a recipe consume no inventory.
     }
 
     // First check that every ingredient is available
@@ -298,7 +298,7 @@ void print_final_inventory_updates(const vector<InventoryItem> &inventory, const
     }
 
     cout << ") AS v(InventoryID, Quantity) "
-            "WHERE i.InventoryID = v.InventoryID;\n";
+            "WHERE i.InventoryID = v.InventoryID AND i.Active = TRUE;\n";
 }
 
 void print_final_shipment_updates(const map<int, deque<Shipment>> &shipments) {
@@ -416,17 +416,17 @@ int main(int argc, char** argv) {
     vector<int> cubMeals;
 
     for (size_t i = 0; i < menu.size(); ++i) {
-        if (menu[i].category == "ENTREE")
+        if (menu[i].category == "Entrees")
             entrees.push_back(i);
-        else if (menu[i].category == "SIDE")
+        else if (menu[i].category == "Sides")
             sides.push_back(i);
-        else if (menu[i].category == "DRINK")
+        else if (menu[i].category == "Drinks")
             drinks.push_back(i);
-        else if (menu[i].category == "APPETIZER")
+        else if (menu[i].category == "Appetizers")
             appetizers.push_back(i);
-        else if (menu[i].category == "EXTRA")
+        else if (menu[i].category == "Extras")
             extras.push_back(i);
-        else if (menu[i].category == "CUB_MEAL")
+        else if (menu[i].category == "Meals")
             cubMeals.push_back(i);
     }
 
@@ -573,6 +573,32 @@ int main(int argc, char** argv) {
                     for (int idx : chosen_idx) { // turns multiple orders of same entree into one menu item with quantity x
                         item_counts[idx]++;
                     }
+                    if (item_counts.empty()) continue;
+
+                    // Check the whole order before consuming any stock. Different
+                    // menu items can share ingredients, so per-item checks are insufficient.
+                    map<int, double> required;
+                    for (const auto &entry : item_counts) {
+                        auto recipe = recipe_map.find(menu[entry.first].id);
+                        if (recipe == recipe_map.end()) continue; // unmapped items use no stock
+                        for (const auto &ingredient : recipe->second)
+                            required[ingredient.inventoryID] += ingredient.quantityRequired * entry.second;
+                    }
+                    bool available = true;
+                    for (const auto &ingredient : required) {
+                        if (get_total_inventory(ingredient.first, base_inventory, shipments) < ingredient.second) {
+                            available = false;
+                            break;
+                        }
+                    }
+                    if (!available) continue;
+                    for (const auto &ingredient : required) {
+                        if (!consume_inventory_fifo(ingredient.first, ingredient.second, base_inventory, shipments)) {
+                            cerr << "Failed to consume validated order inventory\n";
+                            return 1;
+                        }
+                    }
+
                     // compute order total with small per-order noise and occasional discounts
                     double total = 0.0;
 
@@ -600,20 +626,12 @@ int main(int argc, char** argv) {
                     oorder << "(" << order_id << ",'" << buf_date << "','" << buf_time << "'," << fixed << setprecision(2) << total << ")";
                     orders_batch.push_back(oorder.str());
 
-                    // print OrderItem rows immediately grouped by Order later (we will batch separately)
-                    // For convenience we'll also emit OrderItem rows now to separate container
-                    // but to minimize memory we can stream; here we accumulate in strings for batched INSERTs
-                    // Build OrderItem entries
-                    // We'll collect them in a static vector printed after Orders to keep consistent IDs
-                    // For simplicity, append to a global output stream below
-                    // Create OrderItem inserts
+                    // Batch item rows after their parent order rows.
                     for (auto &entry : item_counts) {
                         int idx = entry.first;
                         int q = entry.second;
 
                         int mid = menu[idx].id;
-
-                        consume_menu_item(mid, q, recipe_map, base_inventory, shipments);
 
                         ostringstream oitem;
                         oitem << "("

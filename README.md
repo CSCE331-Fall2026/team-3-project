@@ -38,4 +38,34 @@ Run `g++ generate_base_data.cpp data_utils.cpp -o generate_base_data`\
 `noise.cpp` generates data for `Order`, `OrderItem`, and `InventoryItem` \
 You should then run `psql -h csce-315-db.engr.tamu.edu -p 5432 -U team3 -d team3db -v ON_ERROR_STOP=1 -f generated_data` to enter the data into the database
 
+## Cashier GUI
 
+Cashier-only POS interface based on the cashier GUI sketch. Reads menu items
+from `MenuItem`, checks stock via `MenuItemInventory`/`Inventory`, and on
+Checkout writes the `Orders` + `OrderItem` rows and decremejava -cp ".;postgresql-42.2.8.jar" CashierGUInts `Inventory`
+in a single transaction. INV./REP. buttons are manager-only placeholders.
+
+Build and run (fill in credentials in `dbSetup.java` first; on Mac/Linux
+replace the `;` with a `:`):
+
+Compile with:
+> cd jdbc_swing_demo  
+> javac -cp ".:postgresql-42.2.8.jar" dbSetup.java CashierGUI.java  
+> cd ..  
+
+Run with:
+> cd jdbc_swing_demo  
+> java -cp ".:postgresql-42.2.8.jar" CashierGUI  
+> cd ..  
+
+## Manager GUI
+
+Compile with:
+> cd jdbc_swing_demo  
+> javac -cp ".:postgresql-42.2.8.jar" dbSetup.java InventoryDAO.java ManagerGUI.java  
+> cd ..  
+
+Run with:
+> cd jdbc_swing_demo  
+> java -cp ".:postgresql-42.2.8.jar" ManagerGUI  
+> cd ..  

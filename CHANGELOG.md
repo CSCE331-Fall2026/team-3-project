@@ -1,5 +1,28 @@
 # Changelog
 
+## Phase 3: GUI Implementation
+
+### Summary
+While implementing the GUI, we made several adjustments to our original designs based on how the menu items and manager functionality needed to be organized. The cashier layout was modified to better separate menu categories and make item selection easier. We also expanded the manager GUI because our original design did not account for all of the functionality managers would need.
+
+### Added
+- **`Menu`**: Added a manager tab that allows menu items and prices to be edited.
+- **`Switch Mode`**: Added a button that allows the user to switch from manager mode to cashier mode and from cashier mode to manager mode.
+- **`Manager Pin`**: Added security check when changing from cashier mode to manager mode to ensure that only authorized users can access manager mode.
+- **`Add Item`**: Added functionality for managers to add new inventory items.
+- **`Remove Item`**: Added button to discontinue inventory items and menu items on those respective pages
+- **`Reactivate Item`**: Added button to reactivate discontinued inventory items that are no longer in use if they have existed in the past
+
+### Changed
+- **`Inventory`**: Updated the inventory page to include a remove item button, editable inventory quantities, and a refresh button to resync inventory information with the database.
+- **`Cashier Menu`**: Adjusted the original cashier layout to organize items into categories such as Sides, Entrees, Appetizers, Meals, Extras, and Drinks rather than the original Plate/Bowl-style layout.
+- **`Inventory`**: Added `Active` category to tell whether inventory should be used in GUI
+- **`MenuItem`**: Added `Active` category to tell whether menuItem should be in GUI.
+
+### Not Implemented
+- **`Schedule`**: We currently do not have a way to track employee data. Employees will need to be added to the database before this functionality can be implemented.
+- **`Reports`**: The Reports tab has been added to the GUI, but its functionality will be implemented during a later stage of the project.
+
 ## Phase 2: Database Population
 
 ### Summary
