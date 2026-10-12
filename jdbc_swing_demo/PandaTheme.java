@@ -120,11 +120,16 @@ public class PandaTheme {
 
   // Creates a styled JTable with the specified table model
   static JTable styledTable(final TableEdit<?> m) {
+    return styledTable((javax.swing.table.AbstractTableModel) m);
+  }
+
+  // Creates a styled table for read-only models as well as editable models
+  static JTable styledTable(final javax.swing.table.AbstractTableModel m) {
     JTable t = new JTable(m) {
       public Component prepareRenderer(TableCellRenderer r, int row, int col) {
         Component c = super.prepareRenderer(r, row, col);
         if (!isRowSelected(row)) {
-          if (m.isPending(row)) c.setBackground(RED_LIGHT);
+          if (m instanceof TableEdit<?> && ((TableEdit<?>) m).isPending(convertRowIndexToModel(row))) c.setBackground(RED_LIGHT);
           else c.setBackground(row % 2 == 0 ? WHITE : GREY_LIGHT);
         }
         return c;

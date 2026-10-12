@@ -60,6 +60,16 @@ Run with:
 
 ## Manager GUI
 
+The Order History tab lists today's orders with their order ID, time, and total.
+Click an order to open a popup showing item names and quantities. Refresh reloads
+the list, and reopening the tab also loads the latest orders. Today follows the
+database date used by cashier checkout.
+
+`jdbc_swing_demo/OrderHistoryPage.java` builds the read-only history table and
+item popup using the shared GUI theme. `jdbc_swing_demo/OrderHistoryDAO.java`
+queries today's orders and each order's item quantities, including discontinued
+menu items. Individual item prices are not displayed.
+
 Compile with:
 > cd jdbc_swing_demo  
 > javac -cp ".:postgresql-42.2.8.jar" dbSetup.java InventoryDAO.java ManagerGUI.java  

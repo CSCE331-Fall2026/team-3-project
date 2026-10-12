@@ -11,18 +11,20 @@ import java.util.Map;
 /*
  * Manager window: Inventory (edit amounts, add, discontinue, and reactivate items),
  * Menu (edit prices, add, and discontinue items),
+ * Order History (today's orders and item quantities),
  * Reports and Schedule placeholders.
  * LOW = Quantity <= Minimum_Threshold.
  */
 public class ManagerGUI {
 
-  static final String[] PAGES = {"Inventory", "Menu", "Reports", "Schedule"};
+  static final String[] PAGES = {"Inventory", "Menu", "Order History", "Reports", "Schedule"};
 
   JFrame frame;
   final Connection db;
   InventoryDAO dao;
   TablePage<InventoryDAO.Item> inventory;
   TablePage<InventoryDAO.MenuItem> menu;
+  OrderHistoryPage orderHistory;
   CardLayout cards;
   JPanel pages;
   LinkedHashMap<String, JButton> navButtons = new LinkedHashMap<String, JButton>();
@@ -51,6 +53,8 @@ public class ManagerGUI {
     pages = new JPanel(cards);
     pages.add(buildInventoryPage(), "Inventory");
     pages.add(buildMenuPage(), "Menu");
+    orderHistory = new OrderHistoryPage(frame, db);
+    pages.add(orderHistory.panel, "Order History");
     pages.add(placeholder("Reports"), "Reports");
     pages.add(placeholder("Employee schedule"), "Schedule");
 
@@ -66,7 +70,7 @@ public class ManagerGUI {
     menu.reload();
   }
 
-  // nav bar: Inventory | Menu | Reports | Schedule ... Switch Mode
+  // nav bar: Inventory | Menu | Order History | Reports | Schedule ... Switch Mode
   JPanel buildNavBar() {
     JPanel nav = new JPanel(new BorderLayout());
     nav.setBackground(PandaTheme.GREY);
@@ -100,6 +104,9 @@ public class ManagerGUI {
   // Switches the currently displayed page in the main content area
   void showPage(String name) {
     cards.show(pages, name);
+    if (name.equals("Order History")) {
+      orderHistory.reload();
+    }
     for (String n : navButtons.keySet()) {
       if (n.equals(name)) {
         PandaTheme.setBase(navButtons.get(n),
