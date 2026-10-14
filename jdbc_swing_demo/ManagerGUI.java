@@ -55,7 +55,7 @@ public class ManagerGUI {
     pages.add(buildMenuPage(), "Menu");
     orderHistory = new OrderHistoryPage(frame, db);
     pages.add(orderHistory.panel, "Order History");
-    pages.add(placeholder("Reports"), "Reports");
+    pages.add(new ReportWithFourQuads().panel, "Reports");
     pages.add(placeholder("Employee schedule"), "Schedule");
 
     JPanel root = new JPanel(new BorderLayout());
