@@ -22,10 +22,9 @@ public class ReportWithFourQuads {
 
     JPanel grid = new JPanel(new GridLayout(2, 2, 12, 12));
     grid.setOpaque(false);
-    for (int i = 0; i < quadrants.length; i++) {
-      quadrants[i] = makeQuadrant("Report " + (i + 1));
-      grid.add(quadrants[i]);
-    }
+
+    quadrants[i] = makeQuadrant("Report " + (i + 1));
+    grid.add(quadrants[i]);
 
     panel.setBackground(PandaTheme.WHITE);
     panel.setBorder(new EmptyBorder(16, 20, 16, 20));
