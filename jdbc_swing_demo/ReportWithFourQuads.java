@@ -11,6 +11,7 @@ import javax.swing.*;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
+import javax.swing.table.DefaultTableModel;
 
 /*
  * Reports page split into four quadrants.
@@ -40,9 +41,11 @@ public class ReportWithFourQuads {
 
     quadrants[0] = makeQuadrant("Sales Report");
     quadrants[1] = makeUsageReport("Usage Report");
+    quadrants[2] = makeRestockReport("Restock Report");
 
     grid.add(quadrants[0]);
     grid.add(quadrants[1]);
+    grid.add(quadrants[2]);
 
     panel.setBackground(PandaTheme.WHITE);
     panel.setBorder(new EmptyBorder(16, 20, 16, 20));
@@ -60,7 +63,7 @@ public class ReportWithFourQuads {
     return q;
   }
 
-// fills the quadrant for the usage report
+ // Fills the quadrant for the usage report
  private JPanel makeUsageReport(String title) {
     JPanel q = new JPanel(new BorderLayout(0, 8));
     q.setBackground(PandaTheme.WHITE);
@@ -147,5 +150,71 @@ public class ReportWithFourQuads {
     refresh.run();
 
     return q;
-}
+  }
+
+  // Fills the quadrant for the restock report
+  private JPanel makeRestockReport(String title) {
+    JPanel q = new JPanel(new BorderLayout(0, 8));
+    q.setBackground(PandaTheme.WHITE);
+    q.setBorder(new CompoundBorder(
+        new LineBorder(PandaTheme.GRID, 1),
+        new EmptyBorder(12, 12, 12, 12)));
+
+    JButton runButton = new JButton("Run");
+    JLabel status = PandaTheme.label(" ", PandaTheme.BOLD, PandaTheme.MUTED);
+
+    JPanel controls = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+    controls.setOpaque(false);
+    controls.add(runButton);
+    controls.add(status);
+
+    JPanel header = new JPanel(new BorderLayout(0, 6));
+    header.setOpaque(false);
+    header.add(PandaTheme.label(title, PandaTheme.BOLD, PandaTheme.MUTED), BorderLayout.NORTH);
+    header.add(controls, BorderLayout.SOUTH);
+    q.add(header, BorderLayout.NORTH);
+
+    // makes a read-only table model for the restock report
+    DefaultTableModel tableModel = new DefaultTableModel(
+        new String[] {"Item", "Amount", "Minimum", "Unit"}, 0) {
+      public boolean isCellEditable(int row, int column) {
+        return false;
+      }
+    };
+    q.add(PandaTheme.scroll(new JTable(tableModel)), BorderLayout.CENTER);
+
+    Runnable refresh = () -> {
+        tableModel.setRowCount(0);
+
+        // checks the inventory table for items that are below their threshold
+        try (PreparedStatement ps = conn.prepareStatement(
+            "SELECT i.InventoryID, i.ItemName, i.Quantity, " +
+            "       i." + InventoryDAO.THRESHOLD_COL + ", i.Unit " +
+            "FROM Inventory i " +
+            "WHERE i.Active = TRUE " +
+            "AND i.Quantity < i." + InventoryDAO.THRESHOLD_COL + " " +
+            "ORDER BY (i." + InventoryDAO.THRESHOLD_COL + " - i.Quantity) DESC");
+            ResultSet rs = ps.executeQuery())  {
+            while (rs.next()) {
+                tableModel.addRow(new Object[] {
+                    rs.getString("ItemName"),
+                    rs.getDouble("Quantity"),
+                    rs.getDouble(InventoryDAO.THRESHOLD_COL),
+                    rs.getString("Unit")
+                });
+            }
+        } catch (SQLException ex) {
+            status.setText("Query failed: " + ex.getMessage());
+            return;
+        }
+        
+        // display the number of items that need restocking
+        status.setText(tableModel.getRowCount() + " items need restocking");
+    };
+
+    runButton.addActionListener(e -> refresh.run());
+    refresh.run();
+
+    return q;
+  }
 }
