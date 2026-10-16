@@ -112,7 +112,7 @@ public class ModeSelect {
   // Opens the Manager GUI and closes the current frame
   void openManager() {
     frame.dispose();
-    new ManagerGUI(db).build();
+    new ManagerGUI(db).build(conn);
   }
 
   static {

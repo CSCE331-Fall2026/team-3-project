@@ -1,4 +1,12 @@
 import java.awt.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.ArrayList;
+
 import javax.swing.*;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
@@ -9,12 +17,19 @@ import javax.swing.border.LineBorder;
  * Each quadrant is an empty placeholder panel to be filled in later
  * (e.g. sales report, excess report, restock report, ...).
  */
+
+
+
 public class ReportWithFourQuads {
   public final JPanel panel = new JPanel(new BorderLayout(0, 12));
   public final JPanel[] quadrants = new JPanel[4];
 
+  private final Connection conn;
+
+
   // Builds the reports page: heading on top, 2x2 grid of placeholder quadrants
-  public ReportWithFourQuads() {
+  public ReportWithFourQuads(Connection conn) {
+    this.conn = conn;
     JPanel heading = new JPanel();
     heading.setLayout(new BoxLayout(heading, BoxLayout.Y_AXIS));
     heading.setOpaque(false);
@@ -23,8 +38,11 @@ public class ReportWithFourQuads {
     JPanel grid = new JPanel(new GridLayout(2, 2, 12, 12));
     grid.setOpaque(false);
 
-    quadrants[i] = makeQuadrant("Report " + (i + 1));
-    grid.add(quadrants[i]);
+    quadrants[0] = makeQuadrant("Sales Report");
+    quadrants[1] = makeUsageReport("Usage Report");
+
+    grid.add(quadrants[0]);
+    grid.add(quadrants[1]);
 
     panel.setBackground(PandaTheme.WHITE);
     panel.setBorder(new EmptyBorder(16, 20, 16, 20));
@@ -32,8 +50,7 @@ public class ReportWithFourQuads {
     panel.add(grid, BorderLayout.CENTER);
   }
 
-  // Creates one empty bordered quadrant panel with a placeholder label
-  private JPanel makeQuadrant(String title) {
+   private JPanel makeQuadrant(String title) {
     JPanel q = new JPanel(new BorderLayout());
     q.setBackground(PandaTheme.WHITE);
     q.setBorder(new CompoundBorder(
@@ -42,4 +59,93 @@ public class ReportWithFourQuads {
     q.add(PandaTheme.label(title, PandaTheme.BOLD, PandaTheme.MUTED), BorderLayout.NORTH);
     return q;
   }
+
+// fills the quadrant for the usage report
+ private JPanel makeUsageReport(String title) {
+    JPanel q = new JPanel(new BorderLayout(0, 8));
+    q.setBackground(PandaTheme.WHITE);
+    q.setBorder(new CompoundBorder(
+        new LineBorder(PandaTheme.GRID, 1),
+        new EmptyBorder(12, 12, 12, 12)));
+
+    LocalDate today = LocalDate.now();
+    JSpinner startSpinner = new JSpinner(new SpinnerDateModel(
+        java.util.Date.from(today.minusDays(6).atStartOfDay(ZoneId.systemDefault()).toInstant()),
+        null, null, java.util.Calendar.DAY_OF_MONTH));
+    JSpinner endSpinner = new JSpinner(new SpinnerDateModel(
+        java.util.Date.from(today.atStartOfDay(ZoneId.systemDefault()).toInstant()),
+        null, null, java.util.Calendar.DAY_OF_MONTH));
+    startSpinner.setEditor(new JSpinner.DateEditor(startSpinner, "yyyy-MM-dd"));
+    endSpinner.setEditor(new JSpinner.DateEditor(endSpinner, "yyyy-MM-dd"));
+
+    JButton runButton = new JButton("Run");
+    JLabel status = PandaTheme.label(" ", PandaTheme.BOLD, PandaTheme.MUTED);
+
+    JPanel controls = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+    controls.setOpaque(false);
+    controls.add(new JLabel("From"));
+    controls.add(startSpinner);
+    controls.add(new JLabel("To"));
+    controls.add(endSpinner);
+    controls.add(runButton);
+    controls.add(status);
+
+    JPanel header = new JPanel(new BorderLayout(0, 6));
+    header.setOpaque(false);
+    header.add(PandaTheme.label(title, PandaTheme.BOLD, PandaTheme.MUTED), BorderLayout.NORTH);
+    header.add(controls, BorderLayout.SOUTH);
+    q.add(header, BorderLayout.NORTH);
+
+    BarGraph chart = new BarGraph("", new String[0], new double[0]);
+    chart.setBackground(PandaTheme.WHITE);
+    chart.setPreferredSize(new Dimension(500, 300));
+    q.add(chart, BorderLayout.CENTER);
+
+    Runnable refresh = () -> {
+        LocalDate startDate = ((java.util.Date) startSpinner.getValue())
+            .toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        LocalDate endDate = ((java.util.Date) endSpinner.getValue())
+            .toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        if (startDate.isAfter(endDate)) {
+            status.setText("Start must be on or before end");
+            return;
+        }
+
+        java.util.List<String> labels = new ArrayList<>();
+        java.util.List<Double> values = new ArrayList<>();
+
+        try (PreparedStatement ps = conn.prepareStatement(
+            "SELECT i.InventoryID, i.ItemName, i.Unit, " +
+            "       SUM(oi.Qty * mii.QuantityRequired) AS AmountUsed " +
+            "FROM Orders o " +
+            "JOIN OrderItem oi          ON oi.OrderID     = o.OrderID " +
+            "JOIN MenuItemInventory mii ON mii.MenuItemID = oi.MenuItemID " +
+            "JOIN Inventory i           ON i.InventoryID  = mii.InventoryID " +
+            "WHERE o.OrderDate BETWEEN ? AND ? " +
+            "GROUP BY i.InventoryID, i.ItemName, i.Unit " +
+            "ORDER BY AmountUsed DESC")) {
+            ps.setDate(1, java.sql.Date.valueOf(startDate));
+            ps.setDate(2, java.sql.Date.valueOf(endDate));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    labels.add(rs.getString("ItemName") + " (" + rs.getString("Unit") + ")");
+                    values.add(rs.getDouble("AmountUsed"));
+                }
+            }
+        } catch (SQLException ex) {
+            status.setText("Query failed: " + ex.getMessage());
+            ex.printStackTrace();
+            return;
+        }
+
+        chart.setData(labels.toArray(new String[0]),
+            values.stream().mapToDouble(Double::doubleValue).toArray());
+        status.setText(labels.size() + " items");
+    };
+
+    runButton.addActionListener(e -> refresh.run());
+    refresh.run();
+
+    return q;
+}
 }

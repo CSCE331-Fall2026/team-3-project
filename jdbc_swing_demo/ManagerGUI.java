@@ -33,7 +33,7 @@ public class ManagerGUI {
     ModeSelect.openConnection(new dbSetup());
     PandaTheme.useSystemLook();
     SwingUtilities.invokeLater(new Runnable() {
-      public void run() { new ManagerGUI(ModeSelect.conn).build(); }
+      public void run() { new ManagerGUI(ModeSelect.conn).build(ModeSelect.conn); }
     });
   }
 
@@ -43,7 +43,7 @@ public class ManagerGUI {
   }
 
   // Builds the main GUI layout for the manager interface
-  void build() {
+  void build(Connection conn) {
     frame = new JFrame("Panda Express - Manager");
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     frame.setSize(900, 640);
@@ -55,7 +55,7 @@ public class ManagerGUI {
     pages.add(buildMenuPage(), "Menu");
     orderHistory = new OrderHistoryPage(frame, db);
     pages.add(orderHistory.panel, "Order History");
-    pages.add(new ReportWithFourQuads().panel, "Reports");
+    pages.add(new ReportWithFourQuads(conn).panel, "Reports");
     pages.add(placeholder("Employee schedule"), "Schedule");
 
     JPanel root = new JPanel(new BorderLayout());

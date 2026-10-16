@@ -166,7 +166,7 @@ public class CashierGUI {
     }
     frame.dispose();
     PandaTheme.useSystemLook();
-    new ManagerGUI(conn).build();
+    new ManagerGUI(conn).build(conn);
   }
 
   // ---- Left: category row + scrollable grid of item buttons ----
