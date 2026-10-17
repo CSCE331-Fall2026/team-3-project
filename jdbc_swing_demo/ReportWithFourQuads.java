@@ -42,10 +42,12 @@ public class ReportWithFourQuads {
     quadrants[0] = makeQuadrant("Sales Report");
     quadrants[1] = makeUsageReport("Usage Report");
     quadrants[2] = makeRestockReport("Restock Report");
+    quadrants[3] = makeXReport("X-Report (Today)");
 
     grid.add(quadrants[0]);
     grid.add(quadrants[1]);
     grid.add(quadrants[2]);
+    grid.add(quadrants[3]);
 
     panel.setBackground(PandaTheme.WHITE);
     panel.setBorder(new EmptyBorder(16, 20, 16, 20));
@@ -216,5 +218,89 @@ public class ReportWithFourQuads {
     refresh.run();
 
     return q;
+  }
+
+  // Generates an X-Report showing hourly sales for the current day.
+  // Read-only: does not modify orders, inventory, or register totals.
+  private JPanel makeXReport(String title) {
+      JPanel q = new JPanel(new BorderLayout(0, 8));
+      q.setBackground(PandaTheme.WHITE);
+      q.setBorder(new CompoundBorder(
+          new LineBorder(PandaTheme.GRID, 1),
+          new EmptyBorder(12, 12, 12, 12)));
+
+      JButton runButton = new JButton("Run");
+      JLabel status = PandaTheme.label(" ", PandaTheme.BOLD, PandaTheme.MUTED);
+
+      JPanel controls = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+      controls.setOpaque(false);
+      controls.add(runButton);
+      controls.add(status);
+
+      JPanel header = new JPanel(new BorderLayout(0, 6));
+      header.setOpaque(false);
+      header.add(PandaTheme.label(title, PandaTheme.BOLD, PandaTheme.MUTED),
+          BorderLayout.NORTH);
+      header.add(controls, BorderLayout.SOUTH);
+
+      q.add(header, BorderLayout.NORTH);
+
+      // Create line graph with 24 hours of data.
+      XReportGraph chart = new XReportGraph();
+      chart.setPreferredSize(new Dimension(500, 300));
+      q.add(chart, BorderLayout.CENTER);
+
+      Runnable refresh = () -> {
+          // Reset sales before querying.
+          double[] hourlySales = new double[24];
+
+          LocalDate today = LocalDate.now();
+
+          String sql =
+            "SELECT EXTRACT(HOUR FROM OrderTime) AS Hour, " +
+            "SUM(Total) AS TotalSales " +
+            "FROM Orders " +
+            "WHERE OrderDate = ? " +
+            "GROUP BY EXTRACT(HOUR FROM OrderTime) " +
+            "ORDER BY Hour";
+
+          try (PreparedStatement ps = conn.prepareStatement(sql)) {
+
+              ps.setDate(1, java.sql.Date.valueOf(today));
+
+              try (ResultSet rs = ps.executeQuery()) {
+                  while (rs.next()) {
+                      int hour = rs.getInt("Hour");
+                      double sales = rs.getDouble("TotalSales");
+
+                      if (hour >= 0 && hour < 24) {
+                          hourlySales[hour] = sales;
+                      }
+                  }
+              }
+
+              // Update graph.
+              chart.setData(hourlySales);
+
+              double total = 0;
+              for (double sales : hourlySales) {
+                  total += sales;
+              }
+
+              status.setText(String.format(
+                  "Today's Sales: $%.2f", total));
+
+          } catch (SQLException ex) {
+              status.setText("Query failed: " + ex.getMessage());
+              ex.printStackTrace();
+          }
+      };
+
+      runButton.addActionListener(e -> refresh.run());
+
+      // Generate report when page opens.
+      refresh.run();
+
+      return q;
   }
 }
