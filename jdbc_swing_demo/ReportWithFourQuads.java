@@ -39,7 +39,7 @@ public class ReportWithFourQuads {
     JPanel grid = new JPanel(new GridLayout(2, 2, 12, 12));
     grid.setOpaque(false);
 
-    quadrants[0] = makeQuadrant("Sales Report");
+    quadrants[0] = makeSalesReport("Sales Report");
     quadrants[1] = makeUsageReport("Usage Report");
     quadrants[2] = makeRestockReport("Restock Report");
     quadrants[3] = makeXReport("X-Report (Today)");
@@ -55,13 +55,98 @@ public class ReportWithFourQuads {
     panel.add(grid, BorderLayout.CENTER);
   }
 
-   private JPanel makeQuadrant(String title) {
-    JPanel q = new JPanel(new BorderLayout());
+  // Fills the quadrant for the sales report: quantity sold and revenue per menu item
+  private JPanel makeSalesReport(String title) {
+    JPanel q = new JPanel(new BorderLayout(0, 8));
     q.setBackground(PandaTheme.WHITE);
     q.setBorder(new CompoundBorder(
-      new LineBorder(PandaTheme.GRID, 1),
-      new EmptyBorder(12, 12, 12, 12)));
-    q.add(PandaTheme.label(title, PandaTheme.BOLD, PandaTheme.MUTED), BorderLayout.NORTH);
+        new LineBorder(PandaTheme.GRID, 1),
+        new EmptyBorder(12, 12, 12, 12)));
+
+    LocalDate today = LocalDate.now();
+    JSpinner startSpinner = new JSpinner(new SpinnerDateModel(
+        java.util.Date.from(today.minusDays(6).atStartOfDay(ZoneId.systemDefault()).toInstant()),
+        null, null, java.util.Calendar.DAY_OF_MONTH));
+    JSpinner endSpinner = new JSpinner(new SpinnerDateModel(
+        java.util.Date.from(today.atStartOfDay(ZoneId.systemDefault()).toInstant()),
+        null, null, java.util.Calendar.DAY_OF_MONTH));
+    startSpinner.setEditor(new JSpinner.DateEditor(startSpinner, "yyyy-MM-dd"));
+    endSpinner.setEditor(new JSpinner.DateEditor(endSpinner, "yyyy-MM-dd"));
+
+    JButton runButton = new JButton("Run");
+    JLabel status = PandaTheme.label(" ", PandaTheme.BOLD, PandaTheme.MUTED);
+
+    JPanel controls = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+    controls.setOpaque(false);
+    controls.add(new JLabel("From"));
+    controls.add(startSpinner);
+    controls.add(new JLabel("To"));
+    controls.add(endSpinner);
+    controls.add(runButton);
+
+    JPanel header = new JPanel(new BorderLayout(0, 6));
+    header.setOpaque(false);
+    header.add(PandaTheme.label(title, PandaTheme.BOLD, PandaTheme.MUTED), BorderLayout.NORTH);
+    header.add(controls, BorderLayout.CENTER);
+    header.add(status, BorderLayout.SOUTH);
+    q.add(header, BorderLayout.NORTH);
+
+    DefaultTableModel tableModel = new DefaultTableModel(
+        new String[] {"Item", "Qty Sold", "Revenue"}, 0) {
+      public boolean isCellEditable(int row, int column) {
+        return false;
+      }
+    };
+    q.add(PandaTheme.scroll(new JTable(tableModel)), BorderLayout.CENTER);
+
+    Runnable refresh = () -> {
+        LocalDate startDate = ((java.util.Date) startSpinner.getValue())
+            .toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        LocalDate endDate = ((java.util.Date) endSpinner.getValue())
+            .toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        if (startDate.isAfter(endDate)) {
+            status.setText("Start must be on or before end");
+            return;
+        }
+        tableModel.setRowCount(0);
+
+        // revenue uses each item's current price
+        int totalQty = 0;
+        double totalRevenue = 0;
+        try (PreparedStatement ps = conn.prepareStatement(
+            "SELECT m.MenuItemName, SUM(oi.Qty) AS QtySold, " +
+            "       SUM(oi.Qty * m.Price) AS Revenue " +
+            "FROM Orders o " +
+            "JOIN OrderItem oi ON oi.OrderID    = o.OrderID " +
+            "JOIN MenuItem m   ON m.MenuItemID  = oi.MenuItemID " +
+            "WHERE o.OrderDate BETWEEN ? AND ? " +
+            "GROUP BY m.MenuItemID, m.MenuItemName " +
+            "ORDER BY Revenue DESC")) {
+            ps.setDate(1, java.sql.Date.valueOf(startDate));
+            ps.setDate(2, java.sql.Date.valueOf(endDate));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    int qty = rs.getInt("QtySold");
+                    double revenue = rs.getDouble("Revenue");
+                    tableModel.addRow(new Object[] {
+                        rs.getString("MenuItemName"), qty, String.format("$%.2f", revenue)
+                    });
+                    totalQty += qty;
+                    totalRevenue += revenue;
+                }
+            }
+        } catch (SQLException ex) {
+            status.setText("Query failed: " + ex.getMessage());
+            ex.printStackTrace();
+            return;
+        }
+
+        status.setText(String.format("%d items sold, $%.2f revenue", totalQty, totalRevenue));
+    };
+
+    runButton.addActionListener(e -> refresh.run());
+    refresh.run();
+
     return q;
   }
 
