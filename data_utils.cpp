@@ -76,12 +76,21 @@ string sql_escape(const string &s) {
     return out;
 }
 
+int meal_entree_count(const string &name) {
+    if (name == "BOWL") return 1;
+    if (name == "PLATE") return 2;
+    if (name == "BIGGER PLATE") return 3;
+    return 0;
+}
+
 string classify_item(const string &original_name) {
     string name = original_name;
 
     for (char &c : name) {
         c = toupper((unsigned char)c);
     }
+
+    if (meal_entree_count(name) > 0) return "Meals";
 
     if (name.find("- CUB MEAL") != string::npos)
         return "EXCLUDE";

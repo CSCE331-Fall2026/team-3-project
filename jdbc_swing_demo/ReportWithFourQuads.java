@@ -123,7 +123,10 @@ public class ReportWithFourQuads {
             "SELECT i.InventoryID, i.ItemName, i.Unit, " +
             "       SUM(oi.Qty * mii.QuantityRequired) AS AmountUsed " +
             "FROM Orders o " +
-            "JOIN OrderItem oi          ON oi.OrderID     = o.OrderID " +
+            "JOIN (SELECT OrderID, MenuItemID, Qty FROM OrderItem UNION ALL " +
+            "SELECT parent.OrderID, s.MenuItemID, parent.Qty * s.Qty " +
+            "FROM OrderItemSelection s JOIN OrderItem parent ON parent.OrderItemID = s.OrderItemID) oi " +
+            "ON oi.OrderID = o.OrderID " +
             "JOIN MenuItemInventory mii ON mii.MenuItemID = oi.MenuItemID " +
             "JOIN Inventory i           ON i.InventoryID  = mii.InventoryID " +
             "WHERE o.OrderDate BETWEEN ? AND ? " +

@@ -42,6 +42,7 @@ string trim_quotes(const string &s);
 vector<string> split_csv_line(const string &line);
 string sql_escape(const string &s);
 
+int meal_entree_count(const string &name);
 string classify_item(const string &original_name);
 
 vector<InventoryItem> load_inventory(const string &path);

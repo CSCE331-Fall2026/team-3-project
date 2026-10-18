@@ -18,7 +18,7 @@ import java.util.Map;
  *
  * Layout follows the cashier GUI sketch:
  *   - Top nav bar:  MENU | INV. | REP.  (INV./REP. are manager only)
- *   - Left:  category buttons (Sides, Entrees, Appetizers, Cub Meals, Drinks, Extras)
+ *   - Left:  category buttons (Appetizers, Meals, Drinks, Extras)
  *            whose item buttons are pulled live from the MenuItem table.
  *   - Right: running order ticket (qty, name, price), Subtotal / Tax / Total,
  *            and a red Checkout button.
@@ -26,7 +26,8 @@ import java.util.Map;
  * On Checkout (single transaction):
  *   1. INSERT INTO Orders (OrderID, OrderDate, OrderTime, Total)
  *   2. INSERT INTO OrderItem for each ticket line
- *   3. UPDATE Inventory ... FROM MenuItemInventory to decrement stock used
+ *   3. INSERT INTO OrderItemSelection for meal choices
+ *   4. UPDATE Inventory ... FROM MenuItemInventory for meals and selected food
  * Items with a MenuItemInventory mapping are checked for availability before
  * they can be added to the ticket.
  *
@@ -45,7 +46,7 @@ public class CashierGUI {
   static final String[] SIZES = {"KIDS", "SMALL", "MEDIUM", "MEDDIUM", "LARGE"};
 
   // List of menu item categories.
-  static final String[] CATEGORIES = {"Sides", "Entrees", "Appetizers", "Meals", "Extras", "Drinks"};
+  static final String[] CATEGORIES = {"Appetizers", "Meals", "Extras", "Drinks"};
 
   JFrame frame;
   JPanel itemsPanel;
@@ -53,8 +54,10 @@ public class CashierGUI {
   DefaultListModel<String> ticketModel;
   JLabel headerTotal, subtotalLabel, taxLabel, totalLabel;
 
-  // MenuItemID -> [name, price, qty]
+  // Unique ticket line -> [description, price, qty, menuItemID, selected component IDs]
   LinkedHashMap<Integer, Object[]> orderLines = new LinkedHashMap<Integer, Object[]>();
+
+  int nextLineId = 0;
 
   public static void main(String args[]) {
     openConnection(new dbSetup());
@@ -102,7 +105,7 @@ public class CashierGUI {
 
     frame.add(root);
     frame.setVisible(true);
-    showCategory("Sides");
+    showCategory("Meals");
   }
 
   // ---- Top nav bar: MENU | INV. | REP. ----
@@ -412,48 +415,107 @@ public class CashierGUI {
   // Adds an item to the order, updating the ticket display
   // If the item is not available, a message dialog is shown
   void addItem(int id, String name, double price) {
-    Object[] line = orderLines.get(id);
-    int inCart = (line == null) ? 0 : (Integer) line[2];
-    if (!isAvailable(id, inCart + 1)) {
-      JOptionPane.showMessageDialog(frame, name + " is out of stock.");
-      return;
+    List<Integer> selections = new ArrayList<Integer>();
+    String description = name;
+    try {
+      int count;
+      try (PreparedStatement ps = conn.prepareStatement(
+          "SELECT EntreeCount FROM MenuItem WHERE MenuItemID = ? AND Active = TRUE")) {
+        ps.setInt(1, id);
+        try (ResultSet rs = ps.executeQuery()) {
+          if (!rs.next()) throw new SQLException("This menu item is no longer available.");
+          count = rs.getInt(1);
+        }
+      }
+      if (count > 0) {
+        JPanel choices = new JPanel(new GridLayout(0, 1, 4, 4));
+        List<JComboBox<String>> pickers = new ArrayList<JComboBox<String>>();
+        List<List<Integer>> ids = new ArrayList<List<Integer>>();
+        for (int slot = 0; slot <= count; slot++) {
+          String category = slot == 0 ? "Sides" : "Entrees";
+          JComboBox<String> picker = new JComboBox<String>();
+          List<Integer> optionIds = new ArrayList<Integer>();
+          try (PreparedStatement ps = conn.prepareStatement(
+              "SELECT MenuItemID, MenuItemName FROM MenuItem WHERE Category = ? AND Active = TRUE " +
+              "AND MenuItemName NOT LIKE '%SOUP%' ORDER BY MenuItemName")) {
+            ps.setString(1, category);
+            try (ResultSet rs = ps.executeQuery()) {
+              while (rs.next()) {
+                optionIds.add(rs.getInt(1));
+                picker.addItem(rs.getString(2));
+              }
+            }
+          }
+          if (optionIds.isEmpty()) throw new SQLException("No active " + category + " to choose from.");
+          choices.add(new JLabel(slot == 0 ? "Side" : "Entree " + slot));
+          choices.add(picker);
+          pickers.add(picker);
+          ids.add(optionIds);
+        }
+        if (JOptionPane.showConfirmDialog(frame, choices, name + " - choose your meal",
+            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return;
+        for (int slot = 0; slot < pickers.size(); slot++) {
+          selections.add(ids.get(slot).get(pickers.get(slot).getSelectedIndex()));
+          description += " / " + pickers.get(slot).getSelectedItem();
+        }
+      }
+      int key = ++nextLineId;
+      orderLines.put(key, new Object[] {description, price, 1, id, selections});
+      try {
+        validateCart();
+      } catch (SQLException ex) {
+        orderLines.remove(key);
+        throw ex;
+      }
+      refreshTicket();
+    } catch (SQLException ex) {
+      JOptionPane.showMessageDialog(frame, ex.getMessage(), "Cannot add item", JOptionPane.ERROR_MESSAGE);
     }
-    if (line == null) orderLines.put(id, new Object[] {name, price, 1});
-    else line[2] = (Integer) line[2] + 1;
-    refreshTicket();
   }
 
-  // An item must be active, and every mapped ingredient must be active
-  // with enough stock for the requested quantity. Active unmapped items are available
-  boolean isAvailable(int menuItemId, int qtyWanted) {
-    try (PreparedStatement ps = conn.prepareStatement(
-          "SELECT EXISTS (" +
-          "  SELECT 1 FROM MenuItem WHERE MenuItemID = ? AND Active = TRUE" +
-          ") AND NOT EXISTS (" +
-          "  SELECT 1 FROM MenuItemInventory mii " +
-          "  JOIN Inventory i ON i.InventoryID = mii.InventoryID " +
-          "  WHERE mii.MenuItemID = ? " +
-          "  AND (i.Active = FALSE " +
-          "       OR i.Quantity < mii.QuantityRequired * ?)" +
-          ") AS ok"
-      )) {
+  @SuppressWarnings("unchecked")
+  List<Integer> components(Object[] line) {
+    List<Integer> ids = new ArrayList<Integer>();
+    ids.add((Integer) line[3]);
+    ids.addAll((List<Integer>) line[4]);
+    return ids;
+  }
 
-      ps.setInt(1, menuItemId);
-      ps.setInt(2, menuItemId);
-      ps.setInt(3, qtyWanted);
-      try (ResultSet rs = ps.executeQuery()){
-        rs.next();
-        return rs.getBoolean("ok");
+  // Check combined demand across the whole cart, including repeated entree choices.
+  void validateCart() throws SQLException {
+    Map<Integer, Double> required = new LinkedHashMap<Integer, Double>();
+    for (Object[] line : orderLines.values()) {
+      for (int id : components(line)) {
+        try (PreparedStatement ps = conn.prepareStatement(
+            "SELECT Active FROM MenuItem WHERE MenuItemID = ?")) {
+          ps.setInt(1, id);
+          try (ResultSet rs = ps.executeQuery()) {
+            if (!rs.next() || !rs.getBoolean(1)) throw new SQLException("A selected item is no longer active.");
+          }
+        }
+        try (PreparedStatement ps = conn.prepareStatement(
+            "SELECT InventoryID, QuantityRequired FROM MenuItemInventory WHERE MenuItemID = ?")) {
+          ps.setInt(1, id);
+          try (ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+              int inventoryId = rs.getInt(1);
+              required.put(inventoryId, required.getOrDefault(inventoryId, 0.0) + rs.getDouble(2) * (Integer) line[2]);
+            }
+          }
+        }
       }
-    } catch (SQLException ex) {
-        JOptionPane.showMessageDialog(
-          frame,
-          "Could not check inventory availability:\n" + ex.getMessage(),
-          "Database Error",
-          JOptionPane.ERROR_MESSAGE
-        );
-        return false;
+    }
+    for (Map.Entry<Integer, Double> entry : required.entrySet()) {
+      try (PreparedStatement ps = conn.prepareStatement(
+          "SELECT ItemName, Quantity, Active FROM Inventory WHERE InventoryID = ?")) {
+        ps.setInt(1, entry.getKey());
+        try (ResultSet rs = ps.executeQuery()) {
+          if (!rs.next()) throw new SQLException("A required inventory item is missing.");
+          if (!rs.getBoolean(3) || rs.getDouble(2) + 0.000001 < entry.getValue())
+            throw new SQLException("Not enough " + rs.getString(1) + " for this order.");
+        }
       }
+    }
   }
 
   // Calculates the subtotal of all items in the current order
@@ -469,7 +531,7 @@ public class CashierGUI {
     ticketModel.clear();
     for (Object[] line : orderLines.values()) {
       String name = (String) line[0];
-      if (name.length() > 24) name = name.substring(0, 24);
+
       ticketModel.addElement(String.format("%dx %-24s $%.2f",
         (Integer) line[2], name, (Double) line[1] * (Integer) line[2]));
     }
@@ -493,6 +555,13 @@ public class CashierGUI {
 
     try {
       conn.setAutoCommit(false);
+      // Serialize checkout and manager stock changes while validating combined demand.
+      try (Statement lock = conn.createStatement()) {
+        lock.execute("LOCK TABLE MenuItem, MenuItemInventory IN SHARE MODE");
+        lock.execute("LOCK TABLE Inventory IN SHARE ROW EXCLUSIVE MODE");
+        lock.execute("LOCK TABLE Orders, OrderItem IN EXCLUSIVE MODE");
+      }
+      validateCart();
 
       Statement st = conn.createStatement();
       ResultSet rs = st.executeQuery(
@@ -519,17 +588,32 @@ public class CashierGUI {
         "WHERE mii.MenuItemID = ? " +
         "AND i.InventoryID = mii.InventoryID " +
         "AND i.Active = TRUE");
+      PreparedStatement insSelection = conn.prepareStatement(
+        "INSERT INTO OrderItemSelection (OrderItemID, MenuItemID, Qty) VALUES (?, ?, ?)");
       for (Map.Entry<Integer, Object[]> e : orderLines.entrySet()) {
-        int menuItemId = e.getKey();
+        int menuItemId = (Integer) e.getValue()[3];
         int qty = (Integer) e.getValue()[2];
         insItem.setInt(1, ++nextOrderItemId);
         insItem.setInt(2, orderId);
         insItem.setInt(3, menuItemId);
         insItem.setInt(4, qty);
         insItem.executeUpdate();
-        decInv.setInt(1, qty);
-        decInv.setInt(2, menuItemId);
-        decInv.executeUpdate();
+        Map<Integer, Integer> selectedCounts = new LinkedHashMap<Integer, Integer>();
+        for (int component : components(e.getValue())) {
+          decInv.setInt(1, qty);
+          decInv.setInt(2, component);
+          decInv.executeUpdate();
+        }
+        List<Integer> selected = new ArrayList<Integer>(components(e.getValue()));
+        selected.remove(0); // the meal itself is already stored in OrderItem
+        for (int component : selected)
+          selectedCounts.put(component, selectedCounts.getOrDefault(component, 0) + 1);
+        for (Map.Entry<Integer, Integer> selection : selectedCounts.entrySet()) {
+          insSelection.setInt(1, nextOrderItemId);
+          insSelection.setInt(2, selection.getKey());
+          insSelection.setInt(3, selection.getValue());
+          insSelection.executeUpdate();
+        }
       }
 
       try(Statement check = conn.createStatement();
@@ -542,6 +626,10 @@ public class CashierGUI {
             }
           }
 
+      insOrder.close();
+      insItem.close();
+      decInv.close();
+      insSelection.close();
       conn.commit();
       JOptionPane.showMessageDialog(frame,
         String.format("Order #%d submitted. Total: $%.2f\nThank you, have a nice day!",

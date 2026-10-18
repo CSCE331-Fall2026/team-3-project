@@ -86,3 +86,14 @@ WHERE InventoryItem.ExpirationDate < CURRENT_DATE
 ORDER BY InventoryItem.ExpirationDate;
 
 
+
+/* Meal selection integrity: should return no rows. */
+SELECT oi.OrderItemID, m.MenuItemName
+FROM OrderItem oi
+JOIN MenuItem m ON m.MenuItemID = oi.MenuItemID
+LEFT JOIN OrderItemSelection s ON s.OrderItemID = oi.OrderItemID
+LEFT JOIN MenuItem component ON component.MenuItemID = s.MenuItemID
+WHERE m.EntreeCount > 0
+GROUP BY oi.OrderItemID, m.MenuItemName, m.EntreeCount
+HAVING COALESCE(SUM(s.Qty) FILTER (WHERE component.Category = 'Sides'), 0) <> 1
+    OR COALESCE(SUM(s.Qty) FILTER (WHERE component.Category = 'Entrees'), 0) <> m.EntreeCount;

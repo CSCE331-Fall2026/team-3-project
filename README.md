@@ -37,6 +37,7 @@ Run `g++ generate_base_data.cpp data_utils.cpp -o generate_base_data`\
 `generate_base_data.cpp` loads `Inventory`, `MenuItem`, and `MenuItemInventory` \
 `noise.cpp` generates data for `Order`, `OrderItem`, and `InventoryItem` \
 You should then run `psql -h csce-315-db.engr.tamu.edu -p 5432 -U team3 -d team3db -v ON_ERROR_STOP=1 -f generated_data` to enter the data into the database
+You can run `psql -h csce-315-db.engr.tamu.edu -p 5432 -U team3 -d team3db -v ON_ERROR_STOP=1 -f drop_sales.sql` if you need to drop all tables from the database.
 
 ## Cashier GUI
 
@@ -79,3 +80,35 @@ Run with:
 > cd jdbc_swing_demo  
 > java -cp ".:postgresql-42.2.8.jar" ManagerGUI  
 > cd ..  
+
+## Bowl, Plate, and Bigger Plate meals
+
+The cashier opens on Meals. Bowl includes one side and one entree; Plate includes
+one side and two entrees; Bigger Plate includes one side and three entrees.
+Repeated entree choices are allowed. Soup is available a la carte, not as a meal
+side. Prices start at $9.50, $11.00, and $12.50 in `MenuItems.csv`; these are project
+prices, editable through the manager price editor. All entree choices are included
+without premium surcharges. Existing a la carte items and Cub Meals remain available.
+
+`Inventory.csv` contains Bowl Containers, Plate Containers, and Bigger Plate
+Containers. `Recipes.csv` maps each meal to one container. Selected sides and
+entrees consume their existing ingredient recipes in addition to the container.
+The meal price is charged once, with the existing 8.25% sales tax.
+
+Regenerate the schema as well as the data: `MenuItem` now has `EntreeCount`, and
+`OrderItemSelection` records each meal's food choices separately from its priced
+`OrderItem`. Order history shows those choices, and the product usage report
+includes their ingredients. The noise generator creates matching meals and totals.
+Old schema/data must be removed using your normal database reset process before
+loading the generated SQL (`drop_sales.sql` includes the new table).
+
+```bash
+g++ -std=c++17 generate_base_data.cpp data_utils.cpp -o generate_base_data
+g++ -std=c++17 noise.cpp data_utils.cpp -o noise
+./generate_base_data MenuItems.csv Inventory.csv Recipes.csv > generated_data
+./noise MenuItems.csv Inventory.csv Recipes.csv 364 3 12345 >> generated_data
+# Load generated_data after resetting the database as usual.
+cd jdbc_swing_demo
+javac -cp ".:postgresql-42.2.8.jar" *.java
+java -cp ".:postgresql-42.2.8.jar" CashierGUI
+```

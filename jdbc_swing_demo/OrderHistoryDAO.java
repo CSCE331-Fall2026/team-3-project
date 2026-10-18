@@ -31,13 +31,18 @@ public class OrderHistoryDAO {
   public List<Object[]> fetchItems(int orderId) throws SQLException {
     List<Object[]> items = new ArrayList<Object[]>();
     try (PreparedStatement ps = conn.prepareStatement(
-        "SELECT m.MenuItemName, SUM(oi.Qty) AS Qty FROM OrderItem oi " +
-        "JOIN MenuItem m ON m.MenuItemID = oi.MenuItemID WHERE oi.OrderID = ? " +
-        "GROUP BY m.MenuItemID, m.MenuItemName ORDER BY m.MenuItemName")) {
+        "SELECT m.MenuItemName, oi.Qty, COALESCE((SELECT STRING_AGG(" +
+        "s.Qty::text || 'x ' || sm.MenuItemName, CHR(10) ORDER BY sm.Category DESC, sm.MenuItemName) " +
+        "FROM OrderItemSelection s JOIN MenuItem sm ON sm.MenuItemID = s.MenuItemID " +
+        "WHERE s.OrderItemID = oi.OrderItemID), " +
+        "CASE WHEN m.EntreeCount > 0 THEN 'Selections not recorded' ELSE '' END) AS Selections " +
+        "FROM OrderItem oi JOIN MenuItem m ON m.MenuItemID = oi.MenuItemID " +
+        "WHERE oi.OrderID = ? ORDER BY oi.OrderItemID")) {
       ps.setInt(1, orderId);
       try (ResultSet rs = ps.executeQuery()) {
         while (rs.next()) {
-          items.add(new Object[] {rs.getString("MenuItemName"), rs.getLong("Qty")});
+          items.add(new Object[] {rs.getString("MenuItemName"), rs.getLong("Qty"),
+            rs.getString("Selections")});
         }
       }
     }

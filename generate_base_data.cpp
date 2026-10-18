@@ -57,6 +57,7 @@ int main(int argc, char **argv) {
             "Category VARCHAR(20) NOT NULL,"
             "MenuItemName VARCHAR(150) NOT NULL,"
             "Price DECIMAL(10,2) NOT NULL,"
+            "EntreeCount INT NOT NULL DEFAULT 0 CHECK (EntreeCount BETWEEN 0 AND 3),"
             "Active BOOLEAN NOT NULL DEFAULT TRUE"
             ");\n\n";
 
@@ -85,6 +86,13 @@ int main(int argc, char **argv) {
             "FOREIGN KEY (MenuItemID) REFERENCES MenuItem(MenuItemID)"
             ");\n\n";
 
+    cout << "CREATE TABLE OrderItemSelection ("
+            "OrderItemID INT NOT NULL REFERENCES OrderItem(OrderItemID) ON DELETE CASCADE,"
+            "MenuItemID INT NOT NULL REFERENCES MenuItem(MenuItemID),"
+            "Qty INT NOT NULL CHECK (Qty > 0),"
+            "PRIMARY KEY (OrderItemID, MenuItemID)"
+            ");\n\n";
+
     cout << "BEGIN;\n";
     // INVENTORY
 
@@ -109,7 +117,7 @@ int main(int argc, char **argv) {
     // MENUITEM
 
     cout << "INSERT INTO MenuItem "
-            "(MenuItemID, MenuItemName, Price, Category, Active) VALUES\n";
+            "(MenuItemID, MenuItemName, Price, Category, EntreeCount, Active) VALUES\n";
 
     for (size_t i = 0; i < menu.size(); ++i) {
         cout << "("
@@ -122,7 +130,7 @@ int main(int argc, char **argv) {
             << menu[i].price
             << ",'"
             << sql_escape(menu[i].category)
-            << "',TRUE"
+            << "'," << meal_entree_count(menu[i].name) << ",TRUE"
             << ")";
 
         if (i + 1 < menu.size())

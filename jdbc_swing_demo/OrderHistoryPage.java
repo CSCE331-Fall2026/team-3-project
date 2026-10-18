@@ -97,14 +97,28 @@ public class OrderHistoryPage {
   private void showItems(int orderId) {
     try {
       List<Object[]> items = dao.fetchItems(orderId);
-      DefaultTableModel itemModel = readOnlyModel(new String[] {"Item", "Quantity"},
-        new Class<?>[] {String.class, Long.class});
+      DefaultTableModel itemModel = readOnlyModel(new String[] {"Item", "Quantity", "Selections per meal"},
+        new Class<?>[] {String.class, Long.class, String.class});
       for (Object[] item : items) {
         itemModel.addRow(item);
       }
       JTable itemTable = PandaTheme.styledTable(itemModel);
-      itemTable.getColumnModel().getColumn(0).setPreferredWidth(350);
-      itemTable.getColumnModel().getColumn(1).setPreferredWidth(100);
+      itemTable.getColumnModel().getColumn(0).setPreferredWidth(180);
+      itemTable.getColumnModel().getColumn(1).setPreferredWidth(70);
+      itemTable.getColumnModel().getColumn(2).setPreferredWidth(390);
+      itemTable.getColumnModel().getColumn(2).setCellRenderer((t, value, selected, focus, row, col) -> {
+        JTextArea details = new JTextArea(value == null ? "" : value.toString());
+        details.setFont(t.getFont());
+        details.setLineWrap(true);
+        details.setWrapStyleWord(true);
+        details.setBorder(new EmptyBorder(6, 8, 6, 8));
+        details.setBackground(selected ? t.getSelectionBackground() : t.getBackground());
+        details.setForeground(selected ? t.getSelectionForeground() : t.getForeground());
+        details.setSize(t.getColumnModel().getColumn(col).getWidth(), Short.MAX_VALUE);
+        int height = Math.max(36, details.getPreferredSize().height);
+        if (t.getRowHeight(row) != height) t.setRowHeight(row, height);
+        return details;
+      });
 
       JDialog dialog = new JDialog(parent, "Order #" + orderId, true);
       dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
@@ -126,7 +140,7 @@ public class OrderHistoryPage {
       content.add(bottom, BorderLayout.SOUTH);
       dialog.setContentPane(content);
       dialog.getRootPane().setDefaultButton(close);
-      dialog.setSize(520, 380);
+      dialog.setSize(760, 440);
       dialog.setLocationRelativeTo(parent);
       dialog.setVisible(true);
     } catch (SQLException ex) {
