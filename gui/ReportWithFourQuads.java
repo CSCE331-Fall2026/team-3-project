@@ -151,7 +151,7 @@ public class ReportWithFourQuads {
   }
 
  // Fills the quadrant for the usage report
- private JPanel makeUsageReport(String title) {
+private JPanel makeUsageReport(String title) {
     JPanel q = new JPanel(new BorderLayout(0, 8));
     q.setBackground(PandaTheme.WHITE);
     q.setBorder(new CompoundBorder(
@@ -178,18 +178,21 @@ public class ReportWithFourQuads {
     controls.add(new JLabel("To"));
     controls.add(endSpinner);
     controls.add(runButton);
-    controls.add(status);
 
     JPanel header = new JPanel(new BorderLayout(0, 6));
     header.setOpaque(false);
     header.add(PandaTheme.label(title, PandaTheme.BOLD, PandaTheme.MUTED), BorderLayout.NORTH);
-    header.add(controls, BorderLayout.SOUTH);
+    header.add(controls, BorderLayout.CENTER);
+    header.add(status, BorderLayout.SOUTH);
     q.add(header, BorderLayout.NORTH);
 
-    BarGraph chart = new BarGraph("", new String[0], new double[0]);
-    chart.setBackground(PandaTheme.WHITE);
-    chart.setPreferredSize(new Dimension(500, 300));
-    q.add(chart, BorderLayout.CENTER);
+    DefaultTableModel tableModel = new DefaultTableModel(
+        new String[] {"Item", "Unit", "Amount Used"}, 0) {
+      public boolean isCellEditable(int row, int column) {
+        return false;
+      }
+    };
+    q.add(PandaTheme.scroll(new JTable(tableModel)), BorderLayout.CENTER);
 
     Runnable refresh = () -> {
         LocalDate startDate = ((java.util.Date) startSpinner.getValue())
@@ -200,18 +203,19 @@ public class ReportWithFourQuads {
             status.setText("Start must be on or before end");
             return;
         }
+        if (conn == null) {
+            status.setText("No database connection");
+            return;
+        }
+        tableModel.setRowCount(0);
 
-        java.util.List<String> labels = new ArrayList<>();
-        java.util.List<Double> values = new ArrayList<>();
-
+        // usage = units sold of each menu item x that item's recipe amount
+        int itemCount = 0;
         try (PreparedStatement ps = conn.prepareStatement(
-            "SELECT i.InventoryID, i.ItemName, i.Unit, " +
+            "SELECT i.ItemName, i.Unit, " +
             "       SUM(oi.Qty * mii.QuantityRequired) AS AmountUsed " +
             "FROM Orders o " +
-            "JOIN (SELECT OrderID, MenuItemID, Qty FROM OrderItem UNION ALL " +
-            "SELECT parent.OrderID, s.MenuItemID, parent.Qty * s.Qty " +
-            "FROM OrderItemSelection s JOIN OrderItem parent ON parent.OrderItemID = s.OrderItemID) oi " +
-            "ON oi.OrderID = o.OrderID " +
+            "JOIN OrderItem oi          ON oi.OrderID     = o.OrderID " +
             "JOIN MenuItemInventory mii ON mii.MenuItemID = oi.MenuItemID " +
             "JOIN Inventory i           ON i.InventoryID  = mii.InventoryID " +
             "WHERE o.OrderDate BETWEEN ? AND ? " +
@@ -221,8 +225,12 @@ public class ReportWithFourQuads {
             ps.setDate(2, java.sql.Date.valueOf(endDate));
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    labels.add(rs.getString("ItemName") + " (" + rs.getString("Unit") + ")");
-                    values.add(rs.getDouble("AmountUsed"));
+                    tableModel.addRow(new Object[] {
+                        rs.getString("ItemName"),
+                        rs.getString("Unit"),
+                        String.format("%.2f", rs.getDouble("AmountUsed"))
+                    });
+                    itemCount++;
                 }
             }
         } catch (SQLException ex) {
@@ -231,17 +239,14 @@ public class ReportWithFourQuads {
             return;
         }
 
-        chart.setData(labels.toArray(new String[0]),
-            values.stream().mapToDouble(Double::doubleValue).toArray());
-        status.setText(labels.size() + " items");
+        status.setText(itemCount + " inventory items used");
     };
 
     runButton.addActionListener(e -> refresh.run());
     refresh.run();
 
     return q;
-  }
-
+}
   // Fills the quadrant for the restock report
   private JPanel makeRestockReport(String title) {
     JPanel q = new JPanel(new BorderLayout(0, 8));
