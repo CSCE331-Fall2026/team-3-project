@@ -619,9 +619,10 @@ public class CashierGUI {
   /**
    * Checks combined demand across the whole cart, including repeated entree choices.
    *
-   * @throws SQLException if any item is inactive or inventory is insufficient
+   * @return total ingredient demand, including meal containers and selected food
+   * @throws SQLException if an item is inactive, has no recipe, or stock is insufficient
    */
-  void validateCart() throws SQLException {
+  Map<Integer, Double> validateCart() throws SQLException {
     Map<Integer, Double> required = new LinkedHashMap<Integer, Double>();
     for (Object[] line : orderLines.values()) {
       for (int id : components(line)) {
@@ -638,11 +639,15 @@ public class CashierGUI {
             "SELECT InventoryID, QuantityRequired FROM MenuItemInventory WHERE MenuItemID = ?")) {
           ps.setInt(1, id);
           try (ResultSet rs = ps.executeQuery()) {
+            boolean hasRecipe = false;
             while (rs.next()) {
+              hasRecipe = true;
               int inventoryId = rs.getInt(1);
               required.put(inventoryId,
                 required.getOrDefault(inventoryId, 0.0) + rs.getDouble(2) * (Integer) line[2]);
             }
+            if (!hasRecipe)
+              throw new SQLException("A selected item has no inventory recipe (menu item " + id + ").");
           }
         }
       }
@@ -657,6 +662,26 @@ public class CashierGUI {
           if (!rs.getBoolean(3) || rs.getDouble(2) + 0.000001 < entry.getValue())
             throw new SQLException("Not enough " + rs.getString(1) + " for this order.");
         }
+      }
+    }
+    return required;
+  }
+
+  /**
+   * Deducts the validated cart's combined ingredient demand inside the checkout transaction.
+   * @param required ingredient quantities returned by {@link #validateCart()}
+   * @throws SQLException if an ingredient is unavailable or cannot cover the demand
+   */
+  void deductInventory(Map<Integer, Double> required) throws SQLException {
+    try (PreparedStatement ps = conn.prepareStatement(
+           "UPDATE Inventory SET Quantity = Quantity - ? "
+           + "WHERE InventoryID = ? AND Active = TRUE AND Quantity >= ?")) {
+      for (Map.Entry<Integer, Double> entry : required.entrySet()) {
+        ps.setDouble(1, entry.getValue());
+        ps.setInt(2, entry.getKey());
+        ps.setDouble(3, entry.getValue());
+        if (ps.executeUpdate() != 1)
+          throw new SQLException("Inventory changed; this order cannot be completed.");
       }
     }
   }
@@ -715,7 +740,7 @@ public class CashierGUI {
         lock.execute("LOCK TABLE Inventory IN SHARE ROW EXCLUSIVE MODE");
         lock.execute("LOCK TABLE Orders, OrderItem IN EXCLUSIVE MODE");
       }
-      validateCart();
+      Map<Integer, Double> required = validateCart();
 
       Statement st = conn.createStatement();
       ResultSet rs =
@@ -737,12 +762,6 @@ public class CashierGUI {
       PreparedStatement insItem =
         conn.prepareStatement("INSERT INTO OrderItem (OrderItemID, OrderID, MenuItemID, Qty) "
           + "VALUES (?, ?, ?, ?)");
-      PreparedStatement decInv = conn.prepareStatement(
-        "UPDATE Inventory i SET Quantity = i.Quantity - mii.QuantityRequired * ? "
-        + "FROM MenuItemInventory mii "
-        + "WHERE mii.MenuItemID = ? "
-        + "AND i.InventoryID = mii.InventoryID "
-        + "AND i.Active = TRUE");
       PreparedStatement insSelection = conn.prepareStatement(
         "INSERT INTO OrderItemSelection (OrderItemID, MenuItemID, Qty) VALUES (?, ?, ?)");
       for (Map.Entry<Integer, Object[]> e : orderLines.entrySet()) {
@@ -754,11 +773,6 @@ public class CashierGUI {
         insItem.setInt(4, qty);
         insItem.executeUpdate();
         Map<Integer, Integer> selectedCounts = new LinkedHashMap<Integer, Integer>();
-        for (int component : components(e.getValue())) {
-          decInv.setInt(1, qty);
-          decInv.setInt(2, component);
-          decInv.executeUpdate();
-        }
         List<Integer> selected = new ArrayList<Integer>(components(e.getValue()));
         selected.remove(0); // the meal itself is already stored in OrderItem
         for (int component : selected)
@@ -770,6 +784,8 @@ public class CashierGUI {
           insSelection.executeUpdate();
         }
       }
+
+      deductInventory(required);
 
       try (Statement check = conn.createStatement();
         ResultSet neg = check.executeQuery("SELECT itemname FROM Inventory WHERE Quantity < 0")) {
@@ -783,7 +799,6 @@ public class CashierGUI {
 
       insOrder.close();
       insItem.close();
-      decInv.close();
       insSelection.close();
       conn.commit();
       JOptionPane.showMessageDialog(frame,

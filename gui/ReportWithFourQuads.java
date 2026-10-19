@@ -129,14 +129,18 @@ public class ReportWithFourQuads {
       }
       tableModel.setRowCount(0);
 
-      // revenue uses each item's current price
+      // Meal selections count as portions; their revenue is included in the meal price.
       int totalQty = 0;
       double totalRevenue = 0;
       try (PreparedStatement ps =
              conn.prepareStatement("SELECT m.MenuItemName, SUM(oi.Qty) AS QtySold, "
-               + "       SUM(oi.Qty * m.Price) AS Revenue "
+               + "       SUM(oi.PaidQty * m.Price) AS Revenue "
                + "FROM Orders o "
-               + "JOIN OrderItem oi ON oi.OrderID    = o.OrderID "
+               + "JOIN (SELECT OrderID, MenuItemID, Qty, Qty AS PaidQty FROM OrderItem "
+               + "UNION ALL SELECT parent.OrderID, s.MenuItemID, parent.Qty * s.Qty, 0 "
+               + "FROM OrderItemSelection s "
+               + "JOIN OrderItem parent ON parent.OrderItemID = s.OrderItemID) oi "
+               + "ON oi.OrderID = o.OrderID "
                + "JOIN MenuItem m   ON m.MenuItemID  = oi.MenuItemID "
                + "WHERE (o.OrderDate + o.OrderTime) >= ? "
                + "  AND (o.OrderDate + o.OrderTime) <  ? "
@@ -160,7 +164,7 @@ public class ReportWithFourQuads {
         return;
       }
 
-      status.setText(String.format("%d items sold, $%.2f revenue", totalQty, totalRevenue));
+      status.setText(String.format("%d items (including meal selections), $%.2f revenue", totalQty, totalRevenue));
     };
 
     runButton.addActionListener(e -> refresh.run());
@@ -242,12 +246,16 @@ public class ReportWithFourQuads {
       }
       tableModel.setRowCount(0);
 
-      // usage = units sold of each menu item x that item's recipe amount
+      // Include meal recipes and selected food, scaled by the number of meals ordered.
       int itemCount = 0;
       try (PreparedStatement ps = conn.prepareStatement("SELECT i.ItemName, i.Unit, "
              + "       SUM(oi.Qty * mii.QuantityRequired) AS AmountUsed "
              + "FROM Orders o "
-             + "JOIN OrderItem oi          ON oi.OrderID     = o.OrderID "
+             + "JOIN (SELECT OrderID, MenuItemID, Qty FROM OrderItem "
+             + "UNION ALL SELECT parent.OrderID, s.MenuItemID, parent.Qty * s.Qty "
+             + "FROM OrderItemSelection s "
+             + "JOIN OrderItem parent ON parent.OrderItemID = s.OrderItemID) oi "
+             + "ON oi.OrderID = o.OrderID "
              + "JOIN MenuItemInventory mii ON mii.MenuItemID = oi.MenuItemID "
              + "JOIN Inventory i           ON i.InventoryID  = mii.InventoryID "
              + "WHERE (o.OrderDate + o.OrderTime) >= ? "
