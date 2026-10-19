@@ -1,3 +1,5 @@
+/** Opens the shared database connection and selects the application mode. */
+
 import java.sql.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -13,7 +15,6 @@ import java.awt.event.ActionEvent;
  * CashierGUI has one that opens the manager side after a PIN check.
  */
 public class ModeSelect {
-
   static Connection conn = null;
 
   JFrame frame;
@@ -25,10 +26,13 @@ public class ModeSelect {
    * @param args unused
    */
   public static void main(String args[]) {
-    openConnection(new dbSetup());
+    openConnection(new DbSetup());
     PandaTheme.useSystemLook();
     SwingUtilities.invokeLater(new Runnable() {
-      public void run() { new ModeSelect(conn).build(); }
+      /** Runs the UI initialization or refresh callback. */
+      public void run() {
+        new ModeSelect(conn).build();
+      }
     });
   }
 
@@ -37,11 +41,10 @@ public class ModeSelect {
    *
    * @param credentials database login credentials
    */
-  static void openConnection(dbSetup credentials) {
+  static void openConnection(DbSetup credentials) {
     try {
-      conn = DriverManager.getConnection(
-        "jdbc:postgresql://csce-315-db.engr.tamu.edu/team3db",
-        credentials.user, credentials.pswd);
+      conn = DriverManager.getConnection("jdbc:postgresql://csce-315-db.engr.tamu.edu/team3db",
+        credentials.USER, credentials.PASSWORD);
     } catch (Exception e) {
       e.printStackTrace();
       System.err.println(e.getClass().getName() + ": " + e.getMessage());
@@ -51,7 +54,10 @@ public class ModeSelect {
 
   /** Closes the database connection if it is open. */
   static void closeConnection() {
-    try { conn.close(); } catch (Exception e) { /* ignore */ }
+    try {
+      conn.close();
+    } catch (Exception e) { /* ignore */
+    }
   }
 
   /**
@@ -98,14 +104,20 @@ public class ModeSelect {
     JButton cashier = PandaTheme.primaryButton("Cashier");
     cashier.setFont(PandaTheme.HEADING);
     cashier.addActionListener(new ActionListener() {
-      public void actionPerformed(ActionEvent e) { openCashier(); }
+      /** Handles this control's user action. */
+      public void actionPerformed(ActionEvent e) {
+        openCashier();
+      }
     });
     body.add(cashier, c);
 
     JButton manager = PandaTheme.secondaryButton("Manager");
     manager.setFont(PandaTheme.HEADING);
     manager.addActionListener(new ActionListener() {
-      public void actionPerformed(ActionEvent e) { openManager(); }
+      /** Handles this control's user action. */
+      public void actionPerformed(ActionEvent e) {
+        openManager();
+      }
     });
     body.add(manager, c);
 
@@ -131,7 +143,10 @@ public class ModeSelect {
 
   static {
     Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
-      public void run() { closeConnection(); }
+      /** Runs the UI initialization or refresh callback. */
+      public void run() {
+        closeConnection();
+      }
     }));
   }
 }

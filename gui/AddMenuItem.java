@@ -1,3 +1,5 @@
+/** Provides the menu item form and ingredient recipe editor. */
+
 import java.awt.*;
 import java.awt.event.*;
 import java.sql.SQLException;
@@ -17,7 +19,6 @@ import java.math.BigDecimal;
  * ReactivateMenuItem instead of being inserted again.
  */
 public class AddMenuItem extends JDialog {
-
   private final InventoryDAO dao;
   private final Runnable onSuccess;
 
@@ -83,9 +84,13 @@ public class AddMenuItem extends JDialog {
     gbc.gridx = 1;
     panel.add(categoryBox, gbc);
 
-    recipeModel = new DefaultTableModel(new String[] {"Inventory item", "Unit", "Quantity per menu item"}, 0) {
-      public boolean isCellEditable(int row, int column) { return column == 2; }
-    };
+    recipeModel =
+      new DefaultTableModel(new String[] {"Inventory item", "Unit", "Quantity per menu item"}, 0) {
+        /** Returns whether this table cell permits editing. */
+        public boolean isCellEditable(int row, int column) {
+          return column == 2;
+        }
+      };
     recipeTable = new JTable(recipeModel);
     recipeTable.putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
     JScrollPane recipeScroll = new JScrollPane(recipeTable);
@@ -93,7 +98,9 @@ public class AddMenuItem extends JDialog {
     gbc.gridx = 0;
     gbc.gridy = 3;
     gbc.gridwidth = 2;
-    panel.add(new JLabel("Recipe: enter quantities in the listed units; leave unused ingredients blank."), gbc);
+    panel.add(
+      new JLabel("Recipe: enter quantities in the listed units; leave unused ingredients blank."),
+      gbc);
     gbc.gridy = 4;
     panel.add(recipeScroll, gbc);
     gbc.gridy = 5;
@@ -101,6 +108,7 @@ public class AddMenuItem extends JDialog {
 
     JButton cancel = new JButton("Cancel");
     cancel.addActionListener(new ActionListener() {
+      /** Handles this control's user action. */
       public void actionPerformed(ActionEvent e) {
         dispose();
       }
@@ -109,6 +117,7 @@ public class AddMenuItem extends JDialog {
     JButton add = new JButton("Add Item");
     addButton = add;
     add.addActionListener(new ActionListener() {
+      /** Handles this control's user action. */
       public void actionPerformed(ActionEvent e) {
         addItem();
       }
@@ -142,10 +151,7 @@ public class AddMenuItem extends JDialog {
     String category = (String) categoryBox.getSelectedItem();
 
     if (name.isEmpty() || name.length() > 150) {
-      JOptionPane.showMessageDialog(
-        this,
-        "Enter a menu item name of at most 150 characters."
-      );
+      JOptionPane.showMessageDialog(this, "Enter a menu item name of at most 150 characters.");
       return;
     }
 
@@ -154,35 +160,33 @@ public class AddMenuItem extends JDialog {
     try {
       price = Double.parseDouble(priceText);
     } catch (NumberFormatException ex) {
-      JOptionPane.showMessageDialog(
-        this,
-        "Price must be a valid number."
-      );
+      JOptionPane.showMessageDialog(this, "Price must be a valid number.");
       return;
     }
 
     if (!Double.isFinite(price) || price < 0 || price > 99999999.99) {
-      JOptionPane.showMessageDialog(
-        this,
-        "Price must be finite and between 0 and 99,999,999.99."
-      );
+      JOptionPane.showMessageDialog(this, "Price must be finite and between 0 and 99,999,999.99.");
       return;
     }
 
-    if (recipeTable.isEditing() && !recipeTable.getCellEditor().stopCellEditing()) return;
+    if (recipeTable.isEditing() && !recipeTable.getCellEditor().stopCellEditing())
+      return;
     Map<Integer, Double> ingredients = new LinkedHashMap<Integer, Double>();
     for (int row = 0; row < recipeModel.getRowCount(); row++) {
       Object value = recipeModel.getValueAt(row, 2);
       String text = value == null ? "" : value.toString().trim();
-      if (text.isEmpty()) continue;
+      if (text.isEmpty())
+        continue;
       try {
         BigDecimal qty = new BigDecimal(text);
-        if (qty.signum() <= 0 || qty.compareTo(new BigDecimal("9999999.999")) > 0 ||
-            qty.stripTrailingZeros().scale() > 3) throw new NumberFormatException();
+        if (qty.signum() <= 0 || qty.compareTo(new BigDecimal("9999999.999")) > 0
+          || qty.stripTrailingZeros().scale() > 3)
+          throw new NumberFormatException();
         ingredients.put(inventory.get(row).id, qty.doubleValue());
       } catch (NumberFormatException ex) {
-        JOptionPane.showMessageDialog(this, "Quantity for " + inventory.get(row).name +
-            " must be positive, at most 9,999,999.999, with at most three decimal places.");
+        JOptionPane.showMessageDialog(this,
+          "Quantity for " + inventory.get(row).name
+            + " must be positive, at most 9,999,999.999, with at most three decimal places.");
         return;
       }
     }
@@ -193,20 +197,13 @@ public class AddMenuItem extends JDialog {
         onSuccess.run();
       }
 
-      JOptionPane.showMessageDialog(
-        this,
-        "\"" + name + "\" was added to the menu."
-      );
+      JOptionPane.showMessageDialog(this, "\"" + name + "\" was added to the menu.");
 
       dispose();
 
     } catch (SQLException ex) {
-      JOptionPane.showMessageDialog(
-        this,
-        "Could not add menu item:\n" + ex.getMessage(),
-        "Database Error",
-        JOptionPane.ERROR_MESSAGE
-      );
+      JOptionPane.showMessageDialog(this, "Could not add menu item:\n" + ex.getMessage(),
+        "Database Error", JOptionPane.ERROR_MESSAGE);
     }
   }
 }

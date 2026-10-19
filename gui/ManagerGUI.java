@@ -1,3 +1,5 @@
+/** Provides manager inventory, menu, order history, and report pages. */
+
 import java.sql.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -12,11 +14,10 @@ import java.util.Map;
  * Manager window: Inventory (edit amounts, add, discontinue, and reactivate items),
  * Menu (edit prices, add, and discontinue items),
  * Order History (today's orders and item quantities),
- * Reports and Schedule placeholders.
+ * Reports, and a Schedule placeholder.
  * LOW = Quantity &lt;= Minimum_Threshold.
  */
 public class ManagerGUI {
-
   static final String[] PAGES = {"Inventory", "Menu", "Order History", "Reports", "Schedule"};
 
   JFrame frame;
@@ -35,10 +36,13 @@ public class ManagerGUI {
    * @param args unused
    */
   public static void main(String args[]) {
-    ModeSelect.openConnection(new dbSetup());
+    ModeSelect.openConnection(new DbSetup());
     PandaTheme.useSystemLook();
     SwingUtilities.invokeLater(new Runnable() {
-      public void run() { new ManagerGUI(ModeSelect.conn).build(ModeSelect.conn); }
+      /** Runs the UI initialization or refresh callback. */
+      public void run() {
+        new ManagerGUI(ModeSelect.conn).build(ModeSelect.conn);
+      }
     });
   }
 
@@ -99,17 +103,23 @@ public class ManagerGUI {
       JButton b = PandaTheme.secondaryButton(name);
       b.setBorder(new EmptyBorder(10, 22, 10, 22));
       b.addActionListener(new ActionListener() {
-        public void actionPerformed(ActionEvent e) { showPage(name); }
+        /** Handles this control's user action. */
+        public void actionPerformed(ActionEvent e) {
+          showPage(name);
+        }
       });
       navButtons.put(name, b);
       tabs.add(b);
     }
     nav.add(tabs, BorderLayout.WEST);
 
-    JButton switchMode = PandaTheme.button("Switch Mode",
-      PandaTheme.WHITE, PandaTheme.BLACK, PandaTheme.GREY_LIGHT);
+    JButton switchMode =
+      PandaTheme.button("Switch Mode", PandaTheme.WHITE, PandaTheme.BLACK, PandaTheme.GREY_LIGHT);
     switchMode.addActionListener(new ActionListener() {
-      public void actionPerformed(ActionEvent e) { switchMode(); }
+      /** Handles this control's user action. */
+      public void actionPerformed(ActionEvent e) {
+        switchMode();
+      }
     });
     JPanel right = new JPanel(new GridBagLayout());
     right.setOpaque(false);
@@ -131,11 +141,10 @@ public class ManagerGUI {
     }
     for (String n : navButtons.keySet()) {
       if (n.equals(name)) {
-        PandaTheme.setBase(navButtons.get(n),
-          PandaTheme.RED, PandaTheme.WHITE, PandaTheme.RED);
+        PandaTheme.setBase(navButtons.get(n), PandaTheme.RED, PandaTheme.WHITE, PandaTheme.RED);
       } else {
-        PandaTheme.setBase(navButtons.get(n),
-          PandaTheme.GREY, PandaTheme.BLACK, PandaTheme.GREY_DARK);
+        PandaTheme.setBase(
+          navButtons.get(n), PandaTheme.GREY, PandaTheme.BLACK, PandaTheme.GREY_DARK);
       }
     }
   }
@@ -144,9 +153,11 @@ public class ManagerGUI {
   void switchMode() {
     inventory.stopEditing();
     menu.stopEditing();
-    if ((inventory.hasUnsaved() || menu.hasUnsaved()) && JOptionPane.showConfirmDialog(frame,
-        "You have unsaved changes. Discard them and switch mode?", "Switch Mode",
-        JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) {
+    if ((inventory.hasUnsaved() || menu.hasUnsaved())
+      && JOptionPane.showConfirmDialog(frame,
+           "You have unsaved changes. Discard them and switch mode?", "Switch Mode",
+           JOptionPane.YES_NO_OPTION)
+        != JOptionPane.YES_OPTION) {
       return;
     }
     frame.dispose();
@@ -174,21 +185,20 @@ public class ManagerGUI {
    * @return the inventory page panel
    */
   JPanel buildInventoryPage() {
-
-    TableEdit<InventoryDAO.Item> tableModel =
-      new TableEdit<InventoryDAO.Item>(
-        new String[] {"Item", "Amount", "Unit", "Status", "Unsaved"}) {
-
+    TableEdit<InventoryDAO.Item> tableModel = new TableEdit<InventoryDAO.Item>(
+      new String[] {"Item", "Amount", "Unit", "Status", "Unsaved"}) {
+      /** Returns the database identifier for the row item. */
       int id(InventoryDAO.Item it) {
         return it.id;
       }
 
+      /** Returns the editable numeric value for the row item. */
       double value(InventoryDAO.Item it) {
         return it.quantity;
       }
 
+      /** Returns the display value for a noneditable table column. */
       Object cell(InventoryDAO.Item it, int c) {
-
         if (c == 0) {
           return it.name;
         }
@@ -201,41 +211,20 @@ public class ManagerGUI {
       }
     };
 
-    inventory =
-      new TablePage<InventoryDAO.Item>(
-        frame,
-        "Inventory",
-        null,
-        "items",
-        tableModel,
-        "",
-        new int[] {
-          280,
-          110,
-          90,
-          100,
-          90
-        }) {
-
-      List<InventoryDAO.Item> load()
-          throws SQLException {
-
+    inventory = new TablePage<InventoryDAO.Item>(
+      frame, "Inventory", null, "items", tableModel, "", new int[] {280, 110, 90, 100, 90}) {
+      /** Loads the active records displayed by this manager table. */
+      List<InventoryDAO.Item> load() throws SQLException {
         return dao.fetchAll();
       }
 
-      void store(Map<Integer, Double> changes)
-          throws SQLException {
-
+      /** Saves pending numeric changes through the data access object. */
+      void store(Map<Integer, Double> changes) throws SQLException {
         dao.updateQuantities(changes);
       }
     };
 
-    inventory.table
-      .getColumnModel()
-      .getColumn(3)
-      .setCellRenderer(
-        PandaTheme.statusRenderer()
-      );
+    inventory.table.getColumnModel().getColumn(3).setCellRenderer(PandaTheme.statusRenderer());
 
     // -----------------------------------------------------
     // Discontinue
@@ -243,76 +232,48 @@ public class ManagerGUI {
 
     JButton discontinue = PandaTheme.secondaryButton("Discontinue Item");
 
-    discontinue.addActionListener(
-      new ActionListener() {
-
-        public void actionPerformed(
-            ActionEvent e) {
-
-          removeSelected();
-        }
+    discontinue.addActionListener(new ActionListener() {
+      /** Handles this control's user action. */
+      public void actionPerformed(ActionEvent e) {
+        removeSelected();
       }
-    );
+    });
 
     // -----------------------------------------------------
     // Reactivate
     // -----------------------------------------------------
 
-    JButton reactivate =
-      PandaTheme.secondaryButton(
-        "Reactivate Item"
-      );
+    JButton reactivate = PandaTheme.secondaryButton("Reactivate Item");
 
-    reactivate.addActionListener(
-      new ActionListener() {
-
-        public void actionPerformed(
-            ActionEvent e) {
-
-          new ReactivateItem(
-            frame,
-            dao,
-            new Runnable() {
-
-              public void run() {
-                inventory.reload();
-              }
-
-            }
-          ).setVisible(true);
-        }
+    reactivate.addActionListener(new ActionListener() {
+      /** Handles this control's user action. */
+      public void actionPerformed(ActionEvent e) {
+        new ReactivateItem(frame, dao, new Runnable() {
+          /** Runs the UI initialization or refresh callback. */
+          public void run() {
+            inventory.reload();
+          }
+        }).setVisible(true);
       }
-    );
+    });
 
     // -----------------------------------------------------
     // Add new
     // -----------------------------------------------------
 
-    JButton add =
-      PandaTheme.secondaryButton(
-        "+ Add Item"
-      );
+    JButton add = PandaTheme.secondaryButton("+ Add Item");
 
-    add.addActionListener(
-      new ActionListener() {
-
-        public void actionPerformed(
-            ActionEvent e) {
-
-          new AddItem(
-            frame,
-            dao,
-            new Runnable() {
-
-              public void run() {
-                inventory.reload();
-              }
-
-            }
-          ).setVisible(true);
-        }
+    add.addActionListener(new ActionListener() {
+      /** Handles this control's user action. */
+      public void actionPerformed(ActionEvent e) {
+        new AddItem(frame, dao, new Runnable() {
+          /** Runs the UI initialization or refresh callback. */
+          public void run() {
+            inventory.reload();
+          }
+        }).setVisible(true);
       }
-    );
+    });
 
     inventory.topButtons.add(discontinue);
     inventory.topButtons.add(reactivate);
@@ -327,28 +288,48 @@ public class ManagerGUI {
    * @return the menu page panel
    */
   JPanel buildMenuPage() {
-    TableEdit<InventoryDAO.MenuItem> tableModel = new TableEdit<InventoryDAO.MenuItem>(
-        new String[] {"Menu Item", "Price", "Unsaved"}) {
-      int id(InventoryDAO.MenuItem it) { return it.id; }
-      double value(InventoryDAO.MenuItem it) { return it.price; }
-      Object cell(InventoryDAO.MenuItem it, int c) { return it.name; }
-    };
+    TableEdit<InventoryDAO.MenuItem> tableModel =
+      new TableEdit<InventoryDAO.MenuItem>(new String[] {"Menu Item", "Price", "Unsaved"}) {
+        /** Returns the database identifier for the row item. */
+        int id(InventoryDAO.MenuItem it) {
+          return it.id;
+        }
+
+        /** Returns the editable numeric value for the row item. */
+        double value(InventoryDAO.MenuItem it) {
+          return it.price;
+        }
+
+        /** Returns the display value for a noneditable table column. */
+        Object cell(InventoryDAO.MenuItem it, int c) {
+          return it.name;
+        }
+      };
     menu = new TablePage<InventoryDAO.MenuItem>(frame, "Menu Prices",
-        "New prices apply to future orders only. Past orders keep the totals they were charged.",
-        "menu items", tableModel, "$", new int[] {420, 120, 90}) {
-      List<InventoryDAO.MenuItem> load() throws SQLException { return dao.fetchMenuItems(); }
+      "New prices apply to future orders only. Past orders keep the totals they were charged.",
+      "menu items", tableModel, "$", new int[] {420, 120, 90}) {
+      /** Loads the active records displayed by this manager table. */
+      List<InventoryDAO.MenuItem> load() throws SQLException {
+        return dao.fetchMenuItems();
+      }
+
+      /** Saves pending numeric changes through the data access object. */
       void store(Map<Integer, Double> changes) throws SQLException {
         dao.updatePrices(changes);
       }
+
+      /** Confirms applying the pending price changes. */
       boolean confirmSave(int n) {
         return JOptionPane.showConfirmDialog(frame,
-          "Update " + n + " price(s)? New prices apply to future orders only.",
-          "Save Prices", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION;
+                 "Update " + n + " price(s)? New prices apply to future orders only.",
+                 "Save Prices", JOptionPane.YES_NO_OPTION)
+          == JOptionPane.YES_OPTION;
       }
     };
     JButton remove = PandaTheme.secondaryButton("Discontinue Item");
 
     remove.addActionListener(new ActionListener() {
+      /** Handles this control's user action. */
       public void actionPerformed(ActionEvent e) {
         removeSelectedMenuItem();
       }
@@ -356,8 +337,10 @@ public class ManagerGUI {
     JButton add = PandaTheme.secondaryButton("+ Add Item");
 
     add.addActionListener(new ActionListener() {
+      /** Handles this control's user action. */
       public void actionPerformed(ActionEvent e) {
         new AddMenuItem(frame, dao, new Runnable() {
+          /** Runs the UI initialization or refresh callback. */
           public void run() {
             menu.reload();
           }
@@ -378,10 +361,7 @@ public class ManagerGUI {
     int selectedRow = menu.table.getSelectedRow();
 
     if (selectedRow < 0) {
-      JOptionPane.showMessageDialog(
-        frame,
-        "Select a menu item to discontinue."
-      );
+      JOptionPane.showMessageDialog(frame, "Select a menu item to discontinue.");
       return;
     }
 
@@ -389,12 +369,9 @@ public class ManagerGUI {
 
     InventoryDAO.MenuItem item = menu.model.items.get(row);
 
-    if (JOptionPane.showConfirmDialog(
-        frame,
-        "Discontinue \"" + item.name + "\"?",
-        "Discontinue Menu Item",
-        JOptionPane.YES_NO_OPTION
-        ) != JOptionPane.YES_OPTION) {
+    if (JOptionPane.showConfirmDialog(frame, "Discontinue \"" + item.name + "\"?",
+          "Discontinue Menu Item", JOptionPane.YES_NO_OPTION)
+      != JOptionPane.YES_OPTION) {
       return;
     }
 
@@ -403,18 +380,11 @@ public class ManagerGUI {
 
       menu.reload();
 
-      JOptionPane.showMessageDialog(
-        frame,
-        "\"" + item.name + "\" was discontinued."
-      );
+      JOptionPane.showMessageDialog(frame, "\"" + item.name + "\" was discontinued.");
 
     } catch (SQLException ex) {
-      JOptionPane.showMessageDialog(
-        frame,
-        "Could not discontinue menu item:\n" + ex.getMessage(),
-        "Database Error",
-        JOptionPane.ERROR_MESSAGE
-      );
+      JOptionPane.showMessageDialog(frame, "Could not discontinue menu item:\n" + ex.getMessage(),
+        "Database Error", JOptionPane.ERROR_MESSAGE);
     }
   }
 
@@ -425,10 +395,7 @@ public class ManagerGUI {
     int selectedRow = inventory.table.getSelectedRow();
 
     if (selectedRow < 0) {
-      JOptionPane.showMessageDialog(
-        frame,
-        "Select an inventory item to discontinue."
-      );
+      JOptionPane.showMessageDialog(frame, "Select an inventory item to discontinue.");
       return;
     }
 
@@ -436,12 +403,9 @@ public class ManagerGUI {
 
     InventoryDAO.Item item = inventory.model.items.get(row);
 
-    if (JOptionPane.showConfirmDialog(
-        frame,
-        "Discontinue \"" + item.name + "\" from inventory?",
-        "Discontinue Inventory Item",
-        JOptionPane.YES_NO_OPTION
-        ) != JOptionPane.YES_OPTION) {
+    if (JOptionPane.showConfirmDialog(frame, "Discontinue \"" + item.name + "\" from inventory?",
+          "Discontinue Inventory Item", JOptionPane.YES_NO_OPTION)
+      != JOptionPane.YES_OPTION) {
       return;
     }
 
@@ -451,17 +415,11 @@ public class ManagerGUI {
       inventory.reload();
 
       JOptionPane.showMessageDialog(
-        frame,
-        "\"" + item.name + "\" was discontinued from inventory."
-      );
+        frame, "\"" + item.name + "\" was discontinued from inventory.");
 
     } catch (SQLException ex) {
-      JOptionPane.showMessageDialog(
-        frame,
-        "Could not discontinue item:\n" + ex.getMessage(),
-        "Database Error",
-        JOptionPane.ERROR_MESSAGE
-      );
+      JOptionPane.showMessageDialog(frame, "Could not discontinue item:\n" + ex.getMessage(),
+        "Database Error", JOptionPane.ERROR_MESSAGE);
     }
   }
 }

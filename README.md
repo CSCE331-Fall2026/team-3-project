@@ -49,8 +49,7 @@ The orderItem is labeled by the OrderItem ID and contains the information for th
 The order is pretty much the symphony of orderItems, where it contains the total price, along with all the orderItems in which is in the order. For the cashier, this table represents the final transaction created after the customer's items have been entered. For managers, it supports reports involving total sales, number of orders, revenue over a time period, and other sales trends.
 
 ## Data Generation
-Run `g++ generate_base_data.cpp data_utils.cpp -o generate_base_data`\
-`g++ generate_base_data.cpp data_utils.cpp -o generate_base_data` \
+Run `g++ generate_base_data.cpp data_utils.cpp -o generate_base_data` \
 `g++ noise.cpp data_utils.cpp -o noise` \
 `./generate_base_data MenuItems.csv Inventory.csv Recipes.csv > generated_data` \
 `./noise MenuItems.csv Inventory.csv Recipes.csv 364 3 12345 >> generated_data` \
@@ -63,21 +62,25 @@ You can run `psql -h csce-315-db.engr.tamu.edu -p 5432 -U team3 -d team3db -v ON
 
 Cashier-only POS interface based on the cashier GUI sketch. Reads menu items
 from `MenuItem`, checks stock via `MenuItemInventory`/`Inventory`, and on
-Checkout writes the `Orders` + `OrderItem` rows and decremejava -cp ".;postgresql-42.2.8.jar" CashierGUInts `Inventory`
+Checkout writes the `Orders` + `OrderItem` rows and decrements `Inventory`
 in a single transaction. INV./REP. buttons are manager-only placeholders.
 
-Build and run (fill in credentials in `dbSetup.java` first; on Mac/Linux
+Build and run (fill in credentials in `DbSetup.java` first; on Mac/Linux
 replace the `;` with a `:`):
 
 Compile with:
-> cd gui  
-> javac -cp ".:postgresql-42.2.8.jar" dbSetup.java CashierGUI.java  
-> cd ..  
+```bash
+cd gui
+javac -cp ".:postgresql-42.2.8.jar" DbSetup.java CashierGUI.java
+cd ..
+```
 
 Run with:
-> cd gui  
-> java -cp ".:postgresql-42.2.8.jar" CashierGUI  
-> cd ..  
+```bash
+cd gui
+java -cp ".:postgresql-42.2.8.jar" CashierGUI
+cd ..
+```
 
 ## Manager GUI
 
@@ -92,14 +95,18 @@ queries today's orders and each order's item quantities, including discontinued
 menu items. Individual item prices are not displayed.
 
 Compile with:
-> cd gui  
-> javac -cp ".:postgresql-42.2.8.jar" dbSetup.java InventoryDAO.java ManagerGUI.java  
-> cd ..  
+```bash
+cd gui
+javac -cp ".:postgresql-42.2.8.jar" DbSetup.java InventoryDAO.java ManagerGUI.java
+cd ..
+```
 
 Run with:
-> cd gui  
-> java -cp ".:postgresql-42.2.8.jar" ManagerGUI  
-> cd ..  
+```bash
+cd gui
+java -cp ".:postgresql-42.2.8.jar" ManagerGUI
+cd ..
+```
 
 ## Bowl, Plate, and Bigger Plate meals
 
@@ -132,3 +139,91 @@ cd gui
 javac -cp ".:postgresql-42.2.8.jar" *.java
 java -cp ".:postgresql-42.2.8.jar" CashierGUI
 ```
+
+
+# Code style
+
+[Style Guide.pdf](<Style Guide.pdf>) is the project style guide. Source code uses
+four spaces for C++, two for Java, camelCase variables and methods, capitalized
+class names, uppercase constants, inline opening braces, and purpose comments
+for files and functions. Python uses four-space indentation. Database column
+names, CSV labels, and names supplied by external APIs retain their existing spelling.
+
+`.clang-format` records the Java and C++ formatting rules. With clang-format 23.1.3
+installed, format or check the maintained sources from the repository root:
+
+```bash
+clang-format -i *.cpp *.h gui/*.java jdbc_swing_demo/*.java
+clang-format --dry-run --Werror *.cpp *.h gui/*.java jdbc_swing_demo/*.java
+```
+
+Formatting checks cover whitespace and layout; review naming, declaration
+placement, and comment accuracy against the PDF during code review. Generated
+Javadoc in `docs/`, compiled binaries/classes, the JDBC JAR, and third-party
+JavaScript/CSS bundled with Javadoc are generated or external artifacts.
+Regenerate Javadoc using the command above after source changes.
+
+The Java credential and JDBC demo classes are now `DbSetup`, `JdbcGUI`, and
+`JdbcSQL`, with matching filenames. Update local launch commands that use the
+previous lowercase class names. Compile `jdbc_swing_demo/DbSetup.java` separately
+from `gui/` because both directories contain a default-package `DbSetup` class.
+
+# Source file inventory
+
+| File | Purpose |
+| --- | --- |
+| `data_utils.h` | Shared menu, ingredient, recipe, and shipment records and utility declarations. |
+| `data_utils.cpp` | CSV validation/parsing, menu categorization, SQL escaping, and date helpers. |
+| `generate_base_data.cpp` | Schema and base inventory, menu, and recipe SQL generator. |
+| `noise.cpp` | Simulated sales, meal selections, ingredient usage, and shipment SQL generator. |
+| `structures.h` | Legacy database record objects from the original C++ prototype. |
+| `web_scraper.py` | Selenium nutrition scraper that writes `results.csv`. |
+| `drop_sales.sql` | Removes the project database tables for a reset. |
+| `validation.sql` | Sales, stock, and meal-selection validation queries. |
+| `gui/DbSetup.java` | Database login configuration for the GUI and JDBC demos. |
+| `gui/ModeSelect.java` | Shared database connection and cashier/manager selection screen. |
+| `gui/CashierGUI.java` | Menu browsing, meal selection, ticket, and transactional checkout. |
+| `gui/ManagerGUI.java` | Manager navigation, inventory/menu actions, history, and reports. |
+| `gui/InventoryDAO.java` | Inventory/menu queries and updates, including ingredient recipes. |
+| `gui/AddItem.java` | New inventory ingredient dialog. |
+| `gui/ReactivateItem.java` | Discontinued inventory ingredient reactivation dialog. |
+| `gui/AddMenuItem.java` | Menu item and ingredient recipe form. |
+| `gui/TableEdit.java` | Table model that tracks pending numeric edits. |
+| `gui/TablePage.java` | Shared table page with refresh, save, and unsaved-change controls. |
+| `gui/PandaTheme.java` | Shared colors, fonts, controls, and cell renderers. |
+| `gui/OrderHistoryDAO.java` | Today's orders, item quantities, and meal-selection queries. |
+| `gui/OrderHistoryPage.java` | Order history table and item-details popup. |
+| `gui/ReportWithFourQuads.java` | Sales, ingredient usage, restock, and daily X reports. |
+| `gui/BarGraph.java` | Reusable bar chart panel. |
+| `gui/LineGraph.java` | Reusable line chart panel. |
+| `gui/XReportGraph.java` | Hourly sales chart for the daily X report. |
+| `gui/JdbcGUI.java` | Swing JDBC query demonstration. |
+| `gui/JdbcSQL.java` | Console JDBC query demonstration. |
+| `jdbc_swing_demo/DbSetup.java` | Separate credential example for the original JDBC demo. |
+
+`MenuItems.csv`, `Inventory.csv`, and `Recipes.csv` are generator inputs;
+`results.csv` is scraper output. `generated_data`, `generate_base_data`, `noise`,
+and `.class` files are generated SQL or compiled artifacts. `docs/` contains
+published Javadoc and its assets. The PDFs and GUI sketch image document the
+style, database design, and interface sketches. `CHANGELOG.md` records project
+changes; `.gitignore` lists ignored artifacts; `.clang-format` configures source
+formatting. The empty `java` and `gui/java` files contain no application code.
+
+# AI usage
+
+On October 19, 2026, OpenAI Codex assisted with reviewing the maintained source
+code against `Style Guide.pdf`, applying formatting and naming changes, adding
+file/function comments, updating Java class filenames and references, and
+writing this README's style guidance and source inventory. Temporary PDF-reading
+and formatting tools supported the review. Validation included Java and C++
+compilation, formatter checks, Python syntax checking, and comparison of the C++
+generators' output before and after the changes. This review did not exercise
+the live database, browser scraper, or interactive GUI flows.
+
+The user prompt for this assistance was:
+
+```bash
+go through all code and make sure that it follows the style guide, add a section to the README detailing this AI usage and prompt
+```
+
+The AI style review was reviewed by the team. 

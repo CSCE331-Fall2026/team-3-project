@@ -1,3 +1,5 @@
+/** Tracks pending changes in an editable manager table model. */
+
 import javax.swing.*;
 import javax.swing.table.AbstractTableModel;
 import java.awt.Component;
@@ -8,6 +10,8 @@ import java.util.List;
 /**
  * Table model with one editable number in column 1 and "Unsaved" as the last column.
  * Edits wait in pending (id -&gt; new value) until saved.
+ *
+ * @param <T> row item type
  */
 public abstract class TableEdit<T> extends AbstractTableModel {
   final String[] cols;
@@ -20,12 +24,16 @@ public abstract class TableEdit<T> extends AbstractTableModel {
    *
    * @param cols column names
    */
-  TableEdit(String[] cols) { this.cols = cols; }
+  TableEdit(String[] cols) {
+    this.cols = cols;
+  }
 
   /** Returns the item's id. */
   abstract int id(T item);
+
   /** Returns the item's editable value. */
   abstract double value(T item);
+
   /**
    * Returns the item's value for a non-editable column.
    *
@@ -52,27 +60,37 @@ public abstract class TableEdit<T> extends AbstractTableModel {
    * @param r row index
    * @return true if the row has pending edits
    */
-  boolean isPending(int r) { return pending.containsKey(id(items.get(r))); }
+  boolean isPending(int r) {
+    return pending.containsKey(id(items.get(r)));
+  }
 
   /**
    * Returns the number of rows.
    *
    * @return row count
    */
-  public int getRowCount() { return items.size(); }
+  public int getRowCount() {
+    return items.size();
+  }
+
   /**
    * Returns the number of columns.
    *
    * @return column count
    */
-  public int getColumnCount() { return cols.length; }
+  public int getColumnCount() {
+    return cols.length;
+  }
+
   /**
    * Returns the name of the given column.
    *
    * @param c column index
    * @return column name
    */
-  public String getColumnName(int c) { return cols[c]; }
+  public String getColumnName(int c) {
+    return cols[c];
+  }
 
   /**
    * Returns the class of the given column (Double for the editable column, String otherwise).
@@ -91,7 +109,9 @@ public abstract class TableEdit<T> extends AbstractTableModel {
    * @param c column index
    * @return true if editable
    */
-  public boolean isCellEditable(int r, int c) { return c == 1; }
+  public boolean isCellEditable(int r, int c) {
+    return c == 1;
+  }
 
   /**
    * Returns the value for the specified cell, using pending edits if available.
@@ -103,8 +123,12 @@ public abstract class TableEdit<T> extends AbstractTableModel {
   public Object getValueAt(int r, int c) {
     T it = items.get(r);
     int id = id(it);
-    if (c == 1) return pending.containsKey(id) ? pending.get(id) : value(it);
-    if (c == cols.length - 1) return pending.containsKey(id) ? "*" : "";
+    if (c == 1)
+      return pending.containsKey(id) ? pending.get(id) : value(it);
+    if (c == cols.length - 1)
+      return pending.containsKey(id) ? "*" : "";
+
+    /** Returns the display value for a noneditable table column. */
     return cell(it, c);
   }
 
@@ -116,7 +140,8 @@ public abstract class TableEdit<T> extends AbstractTableModel {
    * @param c column index
    */
   public void setValueAt(Object v, int r, int c) {
-    if (c != 1 || v == null) return;
+    if (c != 1 || v == null)
+      return;
     double d = (Double) v;
     if (d < 0 || Double.isNaN(d) || Double.isInfinite(d)) {
       JOptionPane.showMessageDialog(parent, cols[1] + " must be a non-negative number.");
@@ -124,8 +149,10 @@ public abstract class TableEdit<T> extends AbstractTableModel {
     }
     d = Math.round(d * 100) / 100.0;
     T it = items.get(r);
-    if (d == value(it)) pending.remove(id(it));
-    else pending.put(id(it), d);
+    if (d == value(it))
+      pending.remove(id(it));
+    else
+      pending.put(id(it), d);
     fireTableRowsUpdated(r, r);
   }
 }

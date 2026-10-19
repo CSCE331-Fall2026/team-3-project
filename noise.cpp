@@ -1,41 +1,42 @@
+/** Generates simulated sales, meal selections, stock usage, and shipments as SQL. */
+
 #include <bits/stdc++.h>
 #include <string>
 #include "data_utils.h"
 
 using namespace std;
-using rng_t = std::mt19937_64;
+using RandomEngine = std::mt19937_64;
 
-
-// Ornstein-Uhlenbeck step
-double ou_step(rng_t &rng, double x, double theta, double mu, double sigma, double dt) {
+/** Advances the Ornstein-Uhlenbeck process used for sales intensity. */
+double ouStep(RandomEngine &rng, double x, double theta, double mu, double sigma, double dt) {
     normal_distribution<double> nd(0.0, 1.0);
     double dW = nd(rng) * sqrt(dt);
     return x + theta * (mu - x) * dt + sigma * dW;
 }
 
-int sample_category(rng_t &rng, const vector<int> &items) {
+/** Chooses a random menu index from a category, or returns -1 if empty. */
+int sampleCategory(RandomEngine &rng, const vector<int> &items) {
     if (items.empty()) {
         return -1;
     }
 
-    return items[
-        uniform_int_distribution<int>(0, items.size() - 1)(rng)
-    ];
+    return items[uniform_int_distribution<int>(0, items.size() - 1)(rng)];
 }
 
-//Shipment helper functions
-long long generate_shipment_id(const tm &date, int sequence) {
+/** Combines the shipment date and daily sequence into an identifier. */
+long long generateShipmentId(const tm &date, int sequence) {
     long long year = date.tm_year + 1900;
     long long month = date.tm_mon + 1;
     long long day = date.tm_mday;
 
-    long long date_number = year * 10000 + month * 100 + day;
+    long long dateNumber = year * 10000 + month * 100 + day;
 
-    return date_number * 1000 + sequence;
+    return dateNumber * 1000 + sequence;
 }
 
-double calculate_inventory_quantity(int inventoryID, const map<int, deque<Shipment>> &shipments) {
-    auto it = shipments.find(inventoryID);
+/** Sums the remaining quantity in an ingredient's shipment lots. */
+double calculateInventoryQuantity(int inventoryId, const map<int, deque<Shipment>> &shipments) {
+    auto it = shipments.find(inventoryId);
 
     if (it == shipments.end()) {
         return 0.0;
@@ -50,46 +51,48 @@ double calculate_inventory_quantity(int inventoryID, const map<int, deque<Shipme
     return total;
 }
 
-double get_total_inventory(int inventoryID, const map<int, double> &base_inventory, const map<int, deque<Shipment>> &shipments) {
+/** Sums starting inventory and remaining shipment quantities. */
+double getTotalInventory(int inventoryId, const map<int, double> &baseInventory,
+    const map<int, deque<Shipment>> &shipments) {
     double total = 0.0;
 
-    auto base_it = base_inventory.find(inventoryID);
+    auto baseIt = baseInventory.find(inventoryId);
 
-    if (base_it != base_inventory.end()) {
-        total += base_it->second;
+    if (baseIt != baseInventory.end()) {
+        total += baseIt->second;
     }
 
-    total += calculate_inventory_quantity(inventoryID,shipments);
+    total += calculateInventoryQuantity(inventoryId, shipments);
 
     return total;
 }
 
-double calculate_reorder_quantity(const InventoryItem &item, double current_quantity) {
-    double target_quantity = item.quantity * 4;
+/** Returns the stock needed to reach four times the starting quantity. */
+double calculateReorderQuantity(const InventoryItem &item, double currentQuantity) {
+    double targetQuantity = item.quantity * 4;
 
-    if (current_quantity >= target_quantity) {
+    if (currentQuantity >= targetQuantity) {
         return 0.0;
     }
 
-    return (target_quantity - current_quantity);
+    return (targetQuantity - currentQuantity);
 }
 
-double generate_wholesale_price(rng_t &rng, const InventoryItem &item) {
-    double base_price;
+/** Samples a positive wholesale unit price for an ingredient. */
+double generateWholesalePrice(RandomEngine &rng, const InventoryItem &item) {
+    double basePrice;
 
     if (item.unit == "lbs") {
-        base_price = 2.50;
-    }
-    else if (item.unit == "oz") {
-        base_price = 0.15;
-    }
-    else {
-        base_price = 0.30;
+        basePrice = 2.50;
+    } else if (item.unit == "oz") {
+        basePrice = 0.15;
+    } else {
+        basePrice = 0.30;
     }
 
-    normal_distribution<double> price_noise(1.0,0.05);
+    normal_distribution<double> priceNoise(1.0, 0.05);
 
-    double price = base_price * price_noise(rng);
+    double price = basePrice * priceNoise(rng);
 
     if (price < 0.01) {
         price = 0.01;
@@ -98,93 +101,86 @@ double generate_wholesale_price(rng_t &rng, const InventoryItem &item) {
     return price;
 }
 
-Shipment create_shipment(const InventoryItem &item, double quantity, const tm &received_date, int sequence, rng_t &rng) {
+/** Creates a shipment with its price, receipt date, and expiration date. */
+Shipment createShipment(const InventoryItem &item, double quantity, const tm &receivedDate,
+    int sequence, RandomEngine &rng) {
     Shipment shipment;
 
-    shipment.shipmentID = generate_shipment_id(received_date, sequence);
+    shipment.shipmentId = generateShipmentId(receivedDate, sequence);
 
-    shipment.inventoryID = item.id;
+    shipment.inventoryId = item.id;
 
     shipment.quantity = quantity;
 
-    shipment.wholesalePrice = generate_wholesale_price(rng, item);
+    shipment.wholesalePrice = generateWholesalePrice(rng, item);
 
-    shipment.receivedDate = format_date(received_date);
+    shipment.receivedDate = formatDate(receivedDate);
 
-    tm expiration = add_days(received_date, item.shelf_life);
+    tm expiration = addDays(receivedDate, item.shelfLife);
 
-    shipment.expirationDate = format_date(expiration);
+    shipment.expirationDate = formatDate(expiration);
 
     return shipment;
 }
 
-void print_shipment_insert(const Shipment &shipment) {
+/** Writes an INSERT statement for a shipment. */
+void printShipmentInsert(const Shipment &shipment) {
     cout << "INSERT INTO InventoryItem "
             "(ShipmentID, InventoryID, WholesalePrice, Quantity, "
             "ReceivedDate, ExpirationDate) VALUES (";
 
-    cout << shipment.shipmentID << ","
-         << shipment.inventoryID << ","
-         << fixed << setprecision(2)
-         << shipment.wholesalePrice << ","
-         << fixed << setprecision(3)
-         << shipment.quantity << ",'"
-         << shipment.receivedDate << "','"
-         << shipment.expirationDate << "');\n";
+    cout << shipment.shipmentId << "," << shipment.inventoryId << "," << fixed << setprecision(2)
+         << shipment.wholesalePrice << "," << fixed << setprecision(3) << shipment.quantity << ",'"
+         << shipment.receivedDate << "','" << shipment.expirationDate << "');\n";
 }
 
-void print_shipment_update(const Shipment &shipment) {
+/** Writes an UPDATE statement for a shipment's remaining quantity. */
+void printShipmentUpdate(const Shipment &shipment) {
     cout << "UPDATE InventoryItem "
             "SET Quantity = "
-         << fixed << setprecision(3)
-         << shipment.quantity
-         << " WHERE ShipmentID = "
-         << shipment.shipmentID
-         << ";\n";
+         << fixed << setprecision(3) << shipment.quantity
+         << " WHERE ShipmentID = " << shipment.shipmentId << ";\n";
 }
 
-void print_shipment_delete(long long shipmentID) {
+/** Writes a DELETE statement for a shipment identifier. */
+void printShipmentDelete(long long shipmentId) {
     cout << "DELETE FROM InventoryItem "
             "WHERE ShipmentID = "
-         << shipmentID
-         << ";\n";
+         << shipmentId << ";\n";
 }
 
-void print_inventory_update(int inventoryID, double quantity) {
+/** Writes an UPDATE statement for an active ingredient's quantity. */
+void printInventoryUpdate(int inventoryId, double quantity) {
     cout << "UPDATE Inventory "
             "SET Quantity = "
-         << fixed << setprecision(3)
-         << quantity
-         << " WHERE InventoryID = "
-         << inventoryID
+         << fixed << setprecision(3) << quantity << " WHERE InventoryID = " << inventoryId
          << " AND Active = TRUE;\n";
 }
 
-bool consume_inventory_fifo(int inventoryID, double amount, map<int, double> &base_inventory, map<int, deque<Shipment>> &shipments) {
-    double available = get_total_inventory(inventoryID, base_inventory, shipments);
+/** Consumes starting stock, then shipment lots in receipt order. */
+bool consumeInventoryFifo(int inventoryId, double amount, map<int, double> &baseInventory,
+    map<int, deque<Shipment>> &shipments) {
+    double available = getTotalInventory(inventoryId, baseInventory, shipments);
 
     if (available < amount) {
-        cerr << "Not enough inventory for InventoryID "
-             << inventoryID
-             << ". Needed: " << amount
-             << ", Available: " << available
-             << "\n";
+        cerr << "Not enough inventory for InventoryID " << inventoryId << ". Needed: " << amount
+             << ", Available: " << available << "\n";
 
         return false;
     }
 
     // Consume original starting inventory first
-    double &base_qty = base_inventory[inventoryID];
+    double &baseQty = baseInventory[inventoryId];
 
-    if (base_qty > 0) {
-        double used = min(base_qty, amount);
+    if (baseQty > 0) {
+        double used = min(baseQty, amount);
 
-        base_qty -= used;
+        baseQty -= used;
         amount -= used;
     }
 
     // Then consume Sunday shipment lots FIFO
-    auto &queue = shipments[inventoryID];
+    auto &queue = shipments[inventoryId];
 
     while (amount > 0.000001 && !queue.empty()) {
         Shipment &oldest = queue.front();
@@ -192,8 +188,7 @@ bool consume_inventory_fifo(int inventoryID, double amount, map<int, double> &ba
         if (oldest.quantity <= amount) {
             amount -= oldest.quantity;
             queue.pop_front();
-        }
-        else {
+        } else {
             oldest.quantity -= amount;
             amount = 0;
         }
@@ -202,25 +197,25 @@ bool consume_inventory_fifo(int inventoryID, double amount, map<int, double> &ba
     return true;
 }
 
-bool consume_menu_item(int menuItemID, int qty, const map<int, vector<MenuItemInventoryRow>> &recipe_map, map<int, double> &base_inventory, map<int, deque<Shipment>> &shipments) {
-    auto it = recipe_map.find(menuItemID);
+/** Checks a menu recipe and consumes the required ingredient quantities. */
+bool consumeMenuItem(int menuItemId, int qty,
+    const map<int, vector<MenuItemInventoryRow>> &recipeMap, map<int, double> &baseInventory,
+    map<int, deque<Shipment>> &shipments) {
+    auto it = recipeMap.find(menuItemId);
 
-    if (it == recipe_map.end()) {
+    if (it == recipeMap.end()) {
         return true; // Items without a recipe consume no inventory.
     }
 
     // First check that every ingredient is available
     for (const auto &ingredient : it->second) {
-
         double amount = ingredient.quantityRequired * qty;
 
-        double available = get_total_inventory(ingredient.inventoryID, base_inventory, shipments);
+        double available = getTotalInventory(ingredient.inventoryId, baseInventory, shipments);
 
         if (available < amount) {
-            cerr << "Not enough InventoryID "
-                 << ingredient.inventoryID
-                 << " for MenuItemID "
-                 << menuItemID << "\n";
+            cerr << "Not enough InventoryID " << ingredient.inventoryId << " for MenuItemID "
+                 << menuItemId << "\n";
 
             return false;
         }
@@ -228,21 +223,23 @@ bool consume_menu_item(int menuItemID, int qty, const map<int, vector<MenuItemIn
 
     // Everything is available, now actually consume it
     for (const auto &ingredient : it->second) {
-
         double amount = ingredient.quantityRequired * qty;
 
-        consume_inventory_fifo(ingredient.inventoryID, amount, base_inventory, shipments);
+        consumeInventoryFifo(ingredient.inventoryId, amount, baseInventory, shipments);
     }
 
     return true;
 }
 
-void add_shipment(const Shipment &shipment, map<int, deque<Shipment>> &shipments
-) {
-    shipments[shipment.inventoryID].push_back(shipment);
+/** Appends a shipment to its ingredient's queue. */
+void addShipment(const Shipment &shipment, map<int, deque<Shipment>> &shipments) {
+    shipments[shipment.inventoryId].push_back(shipment);
 }
 
-void restock_inventory(const tm &day, const vector<InventoryItem> &inventory, const map<int, double> &base_inventory, map<int, deque<Shipment>> &shipments, rng_t &rng) {
+/** Adds Sunday shipments for ingredients below their target quantities. */
+void restockInventory(const tm &day, const vector<InventoryItem> &inventory,
+    const map<int, double> &baseInventory, map<int, deque<Shipment>> &shipments,
+    RandomEngine &rng) {
     if (day.tm_wday != 0) {
         return;
     }
@@ -250,46 +247,42 @@ void restock_inventory(const tm &day, const vector<InventoryItem> &inventory, co
     int sequence = 1;
 
     for (const InventoryItem &item : inventory) {
+        double current = getTotalInventory(item.id, baseInventory, shipments);
 
-        double current = get_total_inventory(item.id, base_inventory, shipments);
+        double quantityToOrder = calculateReorderQuantity(item, current);
 
-        double quantity_to_order = calculate_reorder_quantity(item, current);
-
-        if (quantity_to_order <= 0) { 
+        if (quantityToOrder <= 0) {
             continue;
         }
 
-        Shipment shipment = create_shipment(item, quantity_to_order, day, sequence++, rng);
-        
-        add_shipment(shipment, shipments);
-        
+        Shipment shipment = createShipment(item, quantityToOrder, day, sequence++, rng);
+
+        addShipment(shipment, shipments);
     }
 }
 
-map<int, vector<MenuItemInventoryRow>> build_recipe_map(const vector<MenuItemInventoryRow> &recipes) {
-    map<int, vector<MenuItemInventoryRow>> recipe_map;
+/** Groups ingredient recipe rows by menu item identifier. */
+map<int, vector<MenuItemInventoryRow>> buildRecipeMap(const vector<MenuItemInventoryRow> &recipes) {
+    map<int, vector<MenuItemInventoryRow>> recipeMap;
 
     for (const auto &row : recipes) {
-        recipe_map[row.menuItemID].push_back(row);
+        recipeMap[row.menuItemId].push_back(row);
     }
 
-    return recipe_map;
+    return recipeMap;
 }
 
-void print_final_inventory_updates(const vector<InventoryItem> &inventory, const map<int, double> &base_inventory, const map<int, deque<Shipment>> &shipments) {
+/** Writes final ingredient quantities as a batched UPDATE statement. */
+void printFinalInventoryUpdates(const vector<InventoryItem> &inventory,
+    const map<int, double> &baseInventory, const map<int, deque<Shipment>> &shipments) {
     cout << "UPDATE Inventory AS i "
             "SET Quantity = v.Quantity "
             "FROM (VALUES\n";
 
     for (size_t i = 0; i < inventory.size(); ++i) {
+        double quantity = getTotalInventory(inventory[i].id, baseInventory, shipments);
 
-        double quantity = get_total_inventory(inventory[i].id, base_inventory, shipments);
-
-        cout << "("
-             << inventory[i].id << ","
-             << fixed << setprecision(3)
-             << quantity
-             << ")";
+        cout << "(" << inventory[i].id << "," << fixed << setprecision(3) << quantity << ")";
 
         if (i + 1 < inventory.size())
             cout << ",\n";
@@ -301,15 +294,17 @@ void print_final_inventory_updates(const vector<InventoryItem> &inventory, const
             "WHERE i.InventoryID = v.InventoryID AND i.Active = TRUE;\n";
 }
 
-void print_final_shipment_updates(const map<int, deque<Shipment>> &shipments) {
+/** Writes remaining quantities for all shipment lots. */
+void printFinalShipmentUpdates(const map<int, deque<Shipment>> &shipments) {
     for (const auto &entry : shipments) {
         for (const Shipment &shipment : entry.second) {
-            print_shipment_update(shipment);
+            printShipmentUpdate(shipment);
         }
     }
-}void print_final_shipments(
-    const map<int, deque<Shipment>> &shipments
-) {
+}
+
+/** Writes the remaining shipment lots as a batched INSERT statement. */
+void printFinalShipments(const map<int, deque<Shipment>> &shipments) {
     vector<Shipment> remaining;
 
     for (const auto &entry : shipments) {
@@ -327,85 +322,72 @@ void print_final_shipment_updates(const map<int, deque<Shipment>> &shipments) {
             "ReceivedDate, ExpirationDate) VALUES\n";
 
     for (size_t i = 0; i < remaining.size(); ++i) {
-
         const Shipment &shipment = remaining[i];
 
-        cout << "("
-             << shipment.shipmentID << ","
-             << shipment.inventoryID << ","
-             << fixed << setprecision(2)
-             << shipment.wholesalePrice << ","
-             << fixed << setprecision(3)
-             << shipment.quantity << ",'"
-             << shipment.receivedDate << "','"
+        cout << "(" << shipment.shipmentId << "," << shipment.inventoryId << "," << fixed
+             << setprecision(2) << shipment.wholesalePrice << "," << fixed << setprecision(3)
+             << shipment.quantity << ",'" << shipment.receivedDate << "','"
              << shipment.expirationDate << "')";
 
         if (i + 1 < remaining.size()) {
             cout << ",\n";
-        }
-        else {
+        } else {
             cout << ";\n";
         }
     }
 }
 
-
-
-int main(int argc, char** argv) {
+/** Reads generator arguments and writes the generated SQL to standard output. */
+int main(int argc, char **argv) {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
 
     if (argc < 4) {
-        cerr << "Usage: " << argv[0]
-            << " MenuItems.csv Inventory.csv Recipes.csv "
-            << "[days=7] [peak_day=3] [seed]\n";
+        cerr << "Usage: " << argv[0] << " MenuItems.csv Inventory.csv Recipes.csv "
+             << "[days=7] [peak_day=3] [seed]\n";
         return 1;
     }
 
-    string menu_path = argv[1];
-    string inventory_path = argv[2];
-    string recipe_path = argv[3];
+    string menuPath = argv[1];
+    string inventoryPath = argv[2];
+    string recipePath = argv[3];
 
     int days = 7;
-    if (argc >= 5) days = stoi(argv[4]);
+    if (argc >= 5)
+        days = stoi(argv[4]);
 
-    int peak_day = 3;
-    if (argc >= 6) peak_day = stoi(argv[5]);
+    int peakDay = 3;
+    if (argc >= 6)
+        peakDay = stoi(argv[5]);
 
-    uint64_t seed =
-        (uint64_t)chrono::high_resolution_clock::now()
-            .time_since_epoch().count();
+    uint64_t seed = (uint64_t)chrono::high_resolution_clock::now().time_since_epoch().count();
 
     if (argc >= 7)
         seed = stoull(argv[6]);
 
-    rng_t rng(seed);
-    auto menu = load_menu(menu_path);
+    RandomEngine rng(seed);
+    auto menu = loadMenu(menuPath);
 
-    auto inventory = load_inventory(inventory_path);
+    auto inventory = loadInventory(inventoryPath);
 
-    map<string, int> menu_name_to_id;
-    map<string, int> inventory_name_to_id;
+    map<string, int> menuNameToId;
+    map<string, int> inventoryNameToId;
 
     for (const auto &item : menu)
-        menu_name_to_id[item.name] = item.id;
+        menuNameToId[item.name] = item.id;
 
     for (const auto &item : inventory)
-        inventory_name_to_id[item.name] = item.id;
+        inventoryNameToId[item.name] = item.id;
 
-    auto recipes = load_recipes(
-        recipe_path,
-        menu_name_to_id,
-        inventory_name_to_id
-    );
+    auto recipes = loadRecipes(recipePath, menuNameToId, inventoryNameToId);
 
-    auto recipe_map = build_recipe_map(recipes);
+    auto recipeMap = buildRecipeMap(recipes);
 
     map<int, deque<Shipment>> shipments;
-    map<int, double> base_inventory;
+    map<int, double> baseInventory;
 
     for (const auto &item : inventory) {
-        base_inventory[item.id] = item.quantity;
+        baseInventory[item.id] = item.quantity;
     }
 
     vector<int> entrees;
@@ -427,166 +409,176 @@ int main(int argc, char** argv) {
             appetizers.push_back(i);
         else if (menu[i].category == "Extras")
             extras.push_back(i);
-        else if (meal_entree_count(menu[i].name) > 0)
+        else if (mealEntreeCount(menu[i].name) > 0)
             meals.push_back(i);
         else if (menu[i].category == "Meals")
             cubMeals.push_back(i);
     }
 
-
     // Simulation parameters
-    double base_lambda_per_min = 0.2; // baseline orders per minute (adjust to scale)
+    double baseLambdaPerMin = 0.2; // baseline orders per minute (adjust to scale)
     // OU intensity parameters (minute units: dt = 1)
-    double theta = 0.05;   // speed of reversion
-    double mu = 0.0;       // we'll use multiplicative noise around 0 (log-space)
-    double sigma = 0.3;    // volatility of log-intensity
+    double theta = 0.05; // speed of reversion
+    double mu = 0.0;     // we'll use multiplicative noise around 0 (log-space)
+    double sigma = 0.3;  // volatility of log-intensity
     // diurnal hourly multipliers (24 entries) - lunch and dinner peaks
-    vector<double> hour_mult(24, 0.5);
-    for (int h = 6; h <= 9; ++h) hour_mult[h] = 0.6; // breakfast light
-    for (int h = 11; h <= 13; ++h) hour_mult[h] = 1.6; // lunch peak
-    for (int h = 16; h <= 19; ++h) hour_mult[h] = 1.8; // dinner peak
-    for (int h = 20; h <= 22; ++h) hour_mult[h] = 1.0;
+    vector<double> hourMult(24, 0.5);
+    for (int h = 6; h <= 9; ++h)
+        hourMult[h] = 0.6; // breakfast light
+    for (int h = 11; h <= 13; ++h)
+        hourMult[h] = 1.6; // lunch peak
+    for (int h = 16; h <= 19; ++h)
+        hourMult[h] = 1.8; // dinner peak
+    for (int h = 20; h <= 22; ++h)
+        hourMult[h] = 1.0;
     // weekly multiplier: peak day gets boost
-    double peak_multiplier = 1.5;
-    double other_day_multiplier = 1.0;
+    double peakMultiplier = 1.5;
+    double otherDayMultiplier = 1.0;
 
     // operating hours
-    int open_h = 10, close_h = 22; // 10:00 to 22:00
+    int openH = 10, closeH = 22; // 10:00 to 22:00
 
     // SQL generation bookkeeping
-    long long order_id = 1000000;     // start high to avoid collisions
-    long long order_item_id = 2000000;
+    long long orderId = 1000000; // start high to avoid collisions
+    long long orderItemId = 2000000;
 
     // get today's date as end date
     time_t tnow = time(nullptr);
-    tm tm_now = *localtime(&tnow);
+    tm tmNow = *localtime(&tnow);
     // simulate previous 'days' days ending yesterday (so neat)
-    tm_now.tm_mday -= 1;
-    mktime(&tm_now); // normalize
+    tmNow.tm_mday -= 1;
+    mktime(&tmNow); // normalize
 
-    tm start_day = tm_now; //go from first day to now
-    start_day.tm_mday -= days - 1;
-    mktime(&start_day);
+    tm startDay = tmNow; // go from first day to now
+    startDay.tm_mday -= days - 1;
+    mktime(&startDay);
     // For each simulated day
     for (int d = 0; d < days; ++d) {
         // current day
-        tm day = start_day;
+        tm day = startDay;
         day.tm_mday += d;
         mktime(&day);
         int wday = day.tm_wday; // 0=Sun..6=Sat
-        double weekly_mult = (wday == peak_day) ? peak_multiplier : other_day_multiplier;
-        //check for resock
+        double weeklyMult = (wday == peakDay) ? peakMultiplier : otherDayMultiplier;
+        // check for resock
 
-        restock_inventory(day, inventory, base_inventory, shipments, rng);
+        restockInventory(day, inventory, baseInventory, shipments, rng);
         // initialize OU log-noise for intensity per day
-        double log_noise = 0.0;
+        double logNoise = 0.0;
 
         // per-minute loop
-        vector<string> orders_batch;
-        vector<string> order_items_batch;
-        vector<string> selections_batch;
+        vector<string> ordersBatch;
+        vector<string> orderItemsBatch;
+        vector<string> selectionsBatch;
 
-        orders_batch.reserve(500);
-        order_items_batch.reserve(1000);
+        ordersBatch.reserve(500);
+        orderItemsBatch.reserve(1000);
 
-        for (int h = open_h; h < close_h; ++h) {
+        for (int h = openH; h < closeH; ++h) {
             for (int minute = 0; minute < 60; ++minute) {
                 // advance OU with dt=1 minute (t in minutes)
-                log_noise = ou_step(rng, log_noise, theta, mu, sigma, 1.0);
+                logNoise = ouStep(rng, logNoise, theta, mu, sigma, 1.0);
 
                 // compute lambda for this minute
-                double hourFactor = hour_mult[h];
-                double lambda = base_lambda_per_min * hourFactor * weekly_mult * exp(log_noise);
-                if (lambda < 1e-6) lambda = 1e-6;
+                double hourFactor = hourMult[h];
+                double lambda = baseLambdaPerMin * hourFactor * weeklyMult * exp(logNoise);
+                if (lambda < 1e-6)
+                    lambda = 1e-6;
 
                 // sample number of arrivals in this minute
                 poisson_distribution<int> pois(lambda);
                 int arrivals = pois(rng);
                 for (int a = 0; a < arrivals; ++a) {
                     // decide order time within the minute uniformly
-                    int sec = uniform_int_distribution<int>(0,59)(rng);
+                    int sec = uniform_int_distribution<int>(0, 59)(rng);
                     // sample with replacement if possible
-                    vector<int> chosen_idx;
+                    vector<int> chosenIdx;
 
                     // 8% chance of a Cub Meal
-                    bool cub_order =
-                        uniform_int_distribution<int>(1, 100)(rng) <= 8;
+                    bool cubOrder = uniform_int_distribution<int>(1, 100)(rng) <= 8;
 
-                    if (cub_order && !cubMeals.empty()) {
-
-                        chosen_idx.push_back(
-                            sample_category(rng, cubMeals)
-                        );
-                    } 
-                    else {
-
-                        int meal = sample_category(rng, meals);
-                        if (meal == -1 || sides.empty() || entrees.empty()) continue;
-                        chosen_idx.push_back(meal);
-                        chosen_idx.push_back(sample_category(rng, sides));
-                        for (int i = 0; i < meal_entree_count(menu[meal].name); ++i)
-                            chosen_idx.push_back(sample_category(rng, entrees));
+                    if (cubOrder && !cubMeals.empty()) {
+                        chosenIdx.push_back(sampleCategory(rng, cubMeals));
+                    } else {
+                        int meal = sampleCategory(rng, meals);
+                        if (meal == -1 || sides.empty() || entrees.empty())
+                            continue;
+                        chosenIdx.push_back(meal);
+                        chosenIdx.push_back(sampleCategory(rng, sides));
+                        for (int i = 0; i < mealEntreeCount(menu[meal].name); ++i)
+                            chosenIdx.push_back(sampleCategory(rng, entrees));
                         // DRINK
 
                         if (uniform_int_distribution<int>(1, 100)(rng) <= 40) {
-                            int idx = sample_category(rng, drinks);
+                            int idx = sampleCategory(rng, drinks);
 
                             if (idx != -1)
-                                chosen_idx.push_back(idx);
+                                chosenIdx.push_back(idx);
                         }
                         // APPETIZER
 
                         if (uniform_int_distribution<int>(1, 100)(rng) <= 12) {
-                            int idx = sample_category(rng, appetizers);
+                            int idx = sampleCategory(rng, appetizers);
 
                             if (idx != -1)
-                                chosen_idx.push_back(idx);
+                                chosenIdx.push_back(idx);
                         }
                         // EXTRA / DESSERT
 
                         if (uniform_int_distribution<int>(1, 100)(rng) <= 7) {
-                            int idx = sample_category(rng, extras);
+                            int idx = sampleCategory(rng, extras);
 
                             if (idx != -1)
-                                chosen_idx.push_back(idx);
+                                chosenIdx.push_back(idx);
                         }
                     }
-                    map<int, int> selection_counts;
-                    int meal_idx = -1;
-                    if (!cub_order && !chosen_idx.empty() && meal_entree_count(menu[chosen_idx[0]].name) > 0) {
-                        meal_idx = chosen_idx[0];
-                        int count = 1 + meal_entree_count(menu[meal_idx].name);
-                        for (int i = 1; i <= count; ++i) selection_counts[chosen_idx[i]]++;
-                        chosen_idx.erase(chosen_idx.begin() + 1, chosen_idx.begin() + 1 + count);
-                    }
-                    map<int, int> item_counts;
+                    map<int, int> selectionCounts;
+                    int mealIdx = -1;
+                    if (!cubOrder && !chosenIdx.empty() &&
 
-                    for (int idx : chosen_idx) { // turns multiple orders of same entree into one menu item with quantity x
-                        item_counts[idx]++;
+                        mealEntreeCount(menu[chosenIdx[0]].name) > 0) {
+                        mealIdx = chosenIdx[0];
+                        int count = 1 + mealEntreeCount(menu[mealIdx].name);
+                        for (int i = 1; i <= count; ++i)
+                            selectionCounts[chosenIdx[i]]++;
+                        chosenIdx.erase(chosenIdx.begin() + 1, chosenIdx.begin() + 1 + count);
                     }
-                    if (item_counts.empty()) continue;
+                    map<int, int> itemCounts;
+
+                    for (int idx : chosenIdx) { // turns multiple orders of same entree into one
+                                                // menu item with quantity x
+                        itemCounts[idx]++;
+                    }
+                    if (itemCounts.empty())
+                        continue;
 
                     // Check the whole order before consuming any stock. Different
                     // menu items can share ingredients, so per-item checks are insufficient.
                     map<int, double> required;
-                    map<int, int> consumed_counts = item_counts;
-                    for (const auto &entry : selection_counts) consumed_counts[entry.first] += entry.second;
-                    for (const auto &entry : consumed_counts) {
-                        auto recipe = recipe_map.find(menu[entry.first].id);
-                        if (recipe == recipe_map.end()) continue; // unmapped items use no stock
+                    map<int, int> consumedCounts = itemCounts;
+                    for (const auto &entry : selectionCounts)
+                        consumedCounts[entry.first] += entry.second;
+                    for (const auto &entry : consumedCounts) {
+                        auto recipe = recipeMap.find(menu[entry.first].id);
+                        if (recipe == recipeMap.end())
+                            continue; // unmapped items use no stock
                         for (const auto &ingredient : recipe->second)
-                            required[ingredient.inventoryID] += ingredient.quantityRequired * entry.second;
+                            required[ingredient.inventoryId] +=
+                                ingredient.quantityRequired * entry.second;
                     }
                     bool available = true;
                     for (const auto &ingredient : required) {
-                        if (get_total_inventory(ingredient.first, base_inventory, shipments) < ingredient.second) {
+                        if (getTotalInventory(ingredient.first, baseInventory, shipments) <
+                            ingredient.second) {
                             available = false;
                             break;
                         }
                     }
-                    if (!available) continue;
+                    if (!available)
+                        continue;
                     for (const auto &ingredient : required) {
-                        if (!consume_inventory_fifo(ingredient.first, ingredient.second, base_inventory, shipments)) {
+                        if (!consumeInventoryFifo(
+                                ingredient.first, ingredient.second, baseInventory, shipments)) {
                             cerr << "Failed to consume validated order inventory\n";
                             return 1;
                         }
@@ -594,106 +586,104 @@ int main(int argc, char** argv) {
 
                     // Meal components are included in the meal price; match cashier sales tax.
                     double total = 0.0;
-                    for (const auto &entry : item_counts)
+                    for (const auto &entry : itemCounts)
                         total += menu[entry.first].price * entry.second;
                     total *= 1.0825;
                     // format date/time
-                    char buf_date[32], buf_time[32];
-                    snprintf(buf_date, sizeof(buf_date), "%04d-%02d-%02d", day.tm_year+1900, day.tm_mon+1, day.tm_mday);
-                    snprintf(buf_time, sizeof(buf_time), "%02d:%02d:%02d", h, minute, sec);
+                    char bufDate[32], bufTime[32];
+                    snprintf(bufDate, sizeof(bufDate), "%04d-%02d-%02d", day.tm_year + 1900,
+                        day.tm_mon + 1, day.tm_mday);
+                    snprintf(bufTime, sizeof(bufTime), "%02d:%02d:%02d", h, minute, sec);
 
                     // create Order and OrderItem inserts as strings
                     // Order: (OrderID, OrderDate, OrderTime, Total)
                     ostringstream oorder;
-                    oorder << "(" << order_id << ",'" << buf_date << "','" << buf_time << "'," << fixed << setprecision(2) << total << ")";
-                    orders_batch.push_back(oorder.str());
+                    oorder << "(" << orderId << ",'" << bufDate << "','" << bufTime << "'," << fixed
+                           << setprecision(2) << total << ")";
+                    ordersBatch.push_back(oorder.str());
 
                     // Batch item rows after their parent order rows.
-                    for (auto &entry : item_counts) {
+                    for (auto &entry : itemCounts) {
                         int idx = entry.first;
                         int q = entry.second;
 
                         int mid = menu[idx].id;
 
-                        if (idx == meal_idx) {
-                            for (const auto &selection : selection_counts) {
+                        if (idx == mealIdx) {
+                            for (const auto &selection : selectionCounts) {
                                 ostringstream row;
-                                row << "(" << order_item_id << "," << menu[selection.first].id
-                                    << "," << selection.second << ")";
-                                selections_batch.push_back(row.str());
+                                row << "(" << orderItemId << "," << menu[selection.first].id << ","
+                                    << selection.second << ")";
+                                selectionsBatch.push_back(row.str());
                             }
                         }
                         ostringstream oitem;
-                        oitem << "("
-                            << order_item_id++ << ","
-                            << order_id << ","
-                            << mid << ","
-                            << q << ")";
+                        oitem << "(" << orderItemId++ << "," << orderId << "," << mid << "," << q
+                              << ")";
 
-                        order_items_batch.push_back(oitem.str());
+                        orderItemsBatch.push_back(oitem.str());
                     }
 
-                    order_id++;
+                    orderId++;
                 } // arrivals
                 // flush batches every so often
-                if (!orders_batch.empty() && orders_batch.size() >= 500) {
+                if (!ordersBatch.empty() && ordersBatch.size() >= 500) {
                     cout << "INSERT INTO Orders (OrderID, OrderDate, OrderTime, Total) VALUES\n";
 
-                    for (size_t i = 0; i < orders_batch.size(); ++i) {
-                        cout << orders_batch[i]
-                            << (i + 1 < orders_batch.size() ? ",\n" : ";\n");
+                    for (size_t i = 0; i < ordersBatch.size(); ++i) {
+                        cout << ordersBatch[i] << (i + 1 < ordersBatch.size() ? ",\n" : ";\n");
                     }
 
                     cout << "INSERT INTO OrderItem "
                             "(OrderItemID, OrderID, MenuItemID, Qty) VALUES\n";
 
-                    for (size_t i = 0; i < order_items_batch.size(); ++i) {
-                        cout << order_items_batch[i]
-                            << (i + 1 < order_items_batch.size() ? ",\n" : ";\n");
+                    for (size_t i = 0; i < orderItemsBatch.size(); ++i) {
+                        cout << orderItemsBatch[i]
+                             << (i + 1 < orderItemsBatch.size() ? ",\n" : ";\n");
                     }
 
-                    if (!selections_batch.empty()) {
-                        cout << "INSERT INTO OrderItemSelection (OrderItemID, MenuItemID, Qty) VALUES\n";
-                        for (size_t i = 0; i < selections_batch.size(); ++i)
-                            cout << selections_batch[i] << (i + 1 < selections_batch.size() ? ",\n" : ";\n");
-                        selections_batch.clear();
+                    if (!selectionsBatch.empty()) {
+                        cout << "INSERT INTO OrderItemSelection (OrderItemID, MenuItemID, Qty) "
+                                "VALUES\n";
+                        for (size_t i = 0; i < selectionsBatch.size(); ++i)
+                            cout << selectionsBatch[i]
+                                 << (i + 1 < selectionsBatch.size() ? ",\n" : ";\n");
+                        selectionsBatch.clear();
                     }
-                    orders_batch.clear();
-                    order_items_batch.clear();
+                    ordersBatch.clear();
+                    orderItemsBatch.clear();
                 }
             } // minutes
         } // hours
         // flush remaining orders for day
-        if (!orders_batch.empty()) {
+        if (!ordersBatch.empty()) {
             cout << "INSERT INTO Orders (OrderID, OrderDate, OrderTime, Total) VALUES\n";
 
-            for (size_t i = 0; i < orders_batch.size(); ++i) {
-                cout << orders_batch[i]
-                    << (i + 1 < orders_batch.size() ? ",\n" : ";\n");
+            for (size_t i = 0; i < ordersBatch.size(); ++i) {
+                cout << ordersBatch[i] << (i + 1 < ordersBatch.size() ? ",\n" : ";\n");
             }
 
             cout << "INSERT INTO OrderItem "
                     "(OrderItemID, OrderID, MenuItemID, Qty) VALUES\n";
 
-            for (size_t i = 0; i < order_items_batch.size(); ++i) {
-                cout << order_items_batch[i]
-                    << (i + 1 < order_items_batch.size() ? ",\n" : ";\n");
+            for (size_t i = 0; i < orderItemsBatch.size(); ++i) {
+                cout << orderItemsBatch[i] << (i + 1 < orderItemsBatch.size() ? ",\n" : ";\n");
             }
 
-            if (!selections_batch.empty()) {
+            if (!selectionsBatch.empty()) {
                 cout << "INSERT INTO OrderItemSelection (OrderItemID, MenuItemID, Qty) VALUES\n";
-                for (size_t i = 0; i < selections_batch.size(); ++i)
-                    cout << selections_batch[i] << (i + 1 < selections_batch.size() ? ",\n" : ";\n");
-                selections_batch.clear();
+                for (size_t i = 0; i < selectionsBatch.size(); ++i)
+                    cout << selectionsBatch[i] << (i + 1 < selectionsBatch.size() ? ",\n" : ";\n");
+                selectionsBatch.clear();
             }
-            orders_batch.clear();
-            order_items_batch.clear();
+            ordersBatch.clear();
+            orderItemsBatch.clear();
         }
     } // days
 
-    print_final_shipments(shipments);
+    printFinalShipments(shipments);
 
-    print_final_inventory_updates(inventory, base_inventory, shipments);
+    printFinalInventoryUpdates(inventory, baseInventory, shipments);
 
     cout << "COMMIT;\n";
     return 0;

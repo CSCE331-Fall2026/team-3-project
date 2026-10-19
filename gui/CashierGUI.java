@@ -1,3 +1,5 @@
+/** Provides cashier ordering, meal selection, and transactional checkout. */
+
 import java.sql.*;
 import javax.swing.*;
 import javax.swing.border.CompoundBorder;
@@ -34,7 +36,6 @@ import java.util.Map;
  * Styling comes from PandaTheme so the cashier side matches ManagerGUI.
  */
 public class CashierGUI {
-
   static Connection conn = null;
 
   static final double TAX_RATE = 0.0825;
@@ -65,10 +66,13 @@ public class CashierGUI {
    * @param args unused
    */
   public static void main(String args[]) {
-    openConnection(new dbSetup());
+    openConnection(new DbSetup());
     PandaTheme.useSystemLook();
     SwingUtilities.invokeLater(new Runnable() {
-      public void run() { new CashierGUI().build(); }
+      /** Runs the UI initialization or refresh callback. */
+      public void run() {
+        new CashierGUI().build();
+      }
     });
   }
 
@@ -77,11 +81,10 @@ public class CashierGUI {
    *
    * @param credentials database login credentials
    */
-  static void openConnection(dbSetup credentials) {
+  static void openConnection(DbSetup credentials) {
     try {
-      conn = DriverManager.getConnection(
-        "jdbc:postgresql://csce-315-db.engr.tamu.edu/team3db",
-        credentials.user, credentials.pswd);
+      conn = DriverManager.getConnection("jdbc:postgresql://csce-315-db.engr.tamu.edu/team3db",
+        credentials.USER, credentials.PASSWORD);
     } catch (Exception e) {
       e.printStackTrace();
       System.err.println(e.getClass().getName() + ": " + e.getMessage());
@@ -91,7 +94,10 @@ public class CashierGUI {
 
   /** Closes the shared database connection, ignoring any exceptions. */
   static void closeConnection() {
-    try { conn.close(); } catch (Exception e) { /* ignore */ }
+    try {
+      conn.close();
+    } catch (Exception e) { /* ignore */
+    }
   }
 
   /** Builds the main GUI layout for the cashier interface. */
@@ -118,6 +124,7 @@ public class CashierGUI {
   }
 
   // ---- Top nav bar: MENU | INV. | REP. ----
+
   /**
    * Builds the top nav bar (MENU | INV. | REP.) with a Switch Mode button.
    *
@@ -138,23 +145,30 @@ public class CashierGUI {
     rep.setBorder(new EmptyBorder(10, 22, 10, 22));
 
     inv.addActionListener(new ActionListener() {
+      /** Handles this control's user action. */
       public void actionPerformed(ActionEvent e) {
         JOptionPane.showMessageDialog(frame, "Inventory view is manager only.");
       }
     });
     rep.addActionListener(new ActionListener() {
+      /** Handles this control's user action. */
       public void actionPerformed(ActionEvent e) {
         JOptionPane.showMessageDialog(frame, "Reports view is manager only.");
       }
     });
 
-    tabs.add(menu); tabs.add(inv); tabs.add(rep);
+    tabs.add(menu);
+    tabs.add(inv);
+    tabs.add(rep);
     nav.add(tabs, BorderLayout.WEST);
 
-    JButton switchMode = PandaTheme.button("Switch Mode",
-      PandaTheme.WHITE, PandaTheme.BLACK, PandaTheme.GREY_LIGHT);
+    JButton switchMode =
+      PandaTheme.button("Switch Mode", PandaTheme.WHITE, PandaTheme.BLACK, PandaTheme.GREY_LIGHT);
     switchMode.addActionListener(new ActionListener() {
-      public void actionPerformed(ActionEvent e) { switchToManager(); }
+      /** Handles this control's user action. */
+      public void actionPerformed(ActionEvent e) {
+        switchToManager();
+      }
     });
     JPanel right = new JPanel(new GridBagLayout());
     right.setOpaque(false);
@@ -166,19 +180,22 @@ public class CashierGUI {
 
   /** Asks for the manager PIN, then opens the manager side. Wrong PIN stays here. */
   void switchToManager() {
-    if (!orderLines.isEmpty() && JOptionPane.showConfirmDialog(frame,
-        "The current order will be discarded. Switch to manager mode?", "Switch Mode",
-        JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) {
+    if (!orderLines.isEmpty()
+      && JOptionPane.showConfirmDialog(frame,
+           "The current order will be discarded. Switch to manager mode?", "Switch Mode",
+           JOptionPane.YES_NO_OPTION)
+        != JOptionPane.YES_OPTION) {
       return;
     }
     JPasswordField pin = new JPasswordField(10);
     pin.setFont(PandaTheme.BODY);
-    int choice = JOptionPane.showConfirmDialog(frame, pin, "Enter Manager PIN",
-      JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-    if (choice != JOptionPane.OK_OPTION) return;
+    int choice = JOptionPane.showConfirmDialog(
+      frame, pin, "Enter Manager PIN", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+    if (choice != JOptionPane.OK_OPTION)
+      return;
     if (!MANAGER_PIN.equals(new String(pin.getPassword()))) {
-      JOptionPane.showMessageDialog(frame, "Incorrect PIN.", "Manager PIN",
-        JOptionPane.ERROR_MESSAGE);
+      JOptionPane.showMessageDialog(
+        frame, "Incorrect PIN.", "Manager PIN", JOptionPane.ERROR_MESSAGE);
       return;
     }
     frame.dispose();
@@ -187,6 +204,7 @@ public class CashierGUI {
   }
 
   // ---- Left: category row + scrollable grid of item buttons ----
+
   /**
    * Builds the category row plus scrollable grid of item buttons.
    *
@@ -201,7 +219,10 @@ public class CashierGUI {
     for (final String cat : CATEGORIES) {
       JButton b = PandaTheme.secondaryButton(cat);
       b.addActionListener(new ActionListener() {
-        public void actionPerformed(ActionEvent e) { showCategory(cat); }
+        /** Handles this control's user action. */
+        public void actionPerformed(ActionEvent e) {
+          showCategory(cat);
+        }
       });
       catButtons.put(cat, b);
       cats.add(b);
@@ -227,42 +248,43 @@ public class CashierGUI {
   void showCategory(String category) {
     for (String c : catButtons.keySet()) {
       if (c.equals(category)) {
-        PandaTheme.setBase(catButtons.get(c),
-          PandaTheme.RED, PandaTheme.WHITE, PandaTheme.RED_DARK);
+        PandaTheme.setBase(
+          catButtons.get(c), PandaTheme.RED, PandaTheme.WHITE, PandaTheme.RED_DARK);
       } else {
-        PandaTheme.setBase(catButtons.get(c),
-          PandaTheme.GREY, PandaTheme.BLACK, PandaTheme.GREY_DARK);
+        PandaTheme.setBase(
+          catButtons.get(c), PandaTheme.GREY, PandaTheme.BLACK, PandaTheme.GREY_DARK);
       }
     }
     List<Object[]> items = new ArrayList<Object[]>();
     try {
-      PreparedStatement ps = conn.prepareStatement(
-        "SELECT m.MenuItemID, m.MenuItemName, m.Price " +
-        "FROM MenuItem m " +
-        "WHERE m.Category = ? " +
-        "AND m.Active = TRUE " +
-        "AND NOT EXISTS (" +
-        "  SELECT 1 " +
-        "  FROM MenuItemInventory mii " +
-        "  JOIN Inventory i ON i.InventoryID = mii.InventoryID " +
-        "  WHERE mii.MenuItemID = m.MenuItemID " +
-        "  AND i.Active = FALSE" +
-        ") " +
-        "ORDER BY m.MenuItemID"
-      );
+      PreparedStatement ps = conn.prepareStatement("SELECT m.MenuItemID, m.MenuItemName, m.Price "
+        + "FROM MenuItem m "
+        + "WHERE m.Category = ? "
+        + "AND m.Active = TRUE "
+        + "AND NOT EXISTS ("
+        + "  SELECT 1 "
+        + "  FROM MenuItemInventory mii "
+        + "  JOIN Inventory i ON i.InventoryID = mii.InventoryID "
+        + "  WHERE mii.MenuItemID = m.MenuItemID "
+        + "  AND i.Active = FALSE"
+        + ") "
+        + "ORDER BY m.MenuItemID");
 
       ps.setString(1, category);
       ResultSet rs = ps.executeQuery();
       while (rs.next()) {
-        items.add(new Object[] {rs.getInt("MenuItemID"),
-          rs.getString("MenuItemName"), rs.getDouble("Price")});
+        items.add(new Object[] {
+          rs.getInt("MenuItemID"), rs.getString("MenuItemName"), rs.getDouble("Price")});
       }
-      rs.close(); ps.close();
+      rs.close();
+      ps.close();
     } catch (SQLException ex) {
-        JOptionPane.showMessageDialog(frame, "Error loading menu: " + ex.getMessage());
+      JOptionPane.showMessageDialog(frame, "Error loading menu: " + ex.getMessage());
     }
-    if ("Drinks".equals(category)) showDrinkGrid(items);
-    else showItemGrid(items);
+    if ("Drinks".equals(category))
+      showDrinkGrid(items);
+    else
+      showItemGrid(items);
   }
 
   /**
@@ -273,8 +295,7 @@ public class CashierGUI {
   void showItemGrid(List<Object[]> items) {
     itemsPanel.removeAll();
     for (Object[] it : items) {
-      itemsPanel.add(itemButton((Integer) it[0], (String) it[1], (Double) it[2],
-        (String) it[1]));
+      itemsPanel.add(itemButton((Integer) it[0], (String) it[1], (Double) it[2], (String) it[1]));
     }
     itemsPanel.revalidate();
     itemsPanel.repaint();
@@ -286,11 +307,11 @@ public class CashierGUI {
    * @param items rows of {MenuItemID, MenuItemName, Price}
    */
   void showDrinkGrid(List<Object[]> items) {
-    LinkedHashMap<String, List<Object[]>> drinks =
-      new LinkedHashMap<String, List<Object[]>>();
+    LinkedHashMap<String, List<Object[]>> drinks = new LinkedHashMap<String, List<Object[]>>();
     for (Object[] it : items) {
       String base = baseName((String) it[1]);
-      if (!drinks.containsKey(base)) drinks.put(base, new ArrayList<Object[]>());
+      if (!drinks.containsKey(base))
+        drinks.put(base, new ArrayList<Object[]>());
       drinks.get(base).add(it);
     }
     itemsPanel.removeAll();
@@ -299,12 +320,14 @@ public class CashierGUI {
       final List<Object[]> sizes = e.getValue();
       if (sizes.size() == 1) { // no size variants: add it directly
         Object[] it = sizes.get(0);
-        itemsPanel.add(itemButton((Integer) it[0], (String) it[1], (Double) it[2],
-          (String) it[1]));
+        itemsPanel.add(itemButton((Integer) it[0], (String) it[1], (Double) it[2], (String) it[1]));
       } else {
         JButton b = gridButton(base);
         b.addActionListener(new ActionListener() {
-          public void actionPerformed(ActionEvent e2) { showSizeGrid(base, sizes); }
+          /** Handles this control's user action. */
+          public void actionPerformed(ActionEvent e2) {
+            showSizeGrid(base, sizes);
+          }
         });
         itemsPanel.add(b);
       }
@@ -322,6 +345,7 @@ public class CashierGUI {
   void showSizeGrid(String base, List<Object[]> sizes) {
     List<Object[]> sorted = new ArrayList<Object[]>(sizes);
     Collections.sort(sorted, new Comparator<Object[]>() {
+      /** Compares drink sizes in their display order. */
       public int compare(Object[] a, Object[] b) {
         return sizeOrder((String) a[1]) - sizeOrder((String) b[1]);
       }
@@ -329,12 +353,15 @@ public class CashierGUI {
     itemsPanel.removeAll();
     JButton back = gridButton("&lt; Back");
     back.addActionListener(new ActionListener() {
-      public void actionPerformed(ActionEvent e) { showCategory("Drinks"); }
+      /** Handles this control's user action. */
+      public void actionPerformed(ActionEvent e) {
+        showCategory("Drinks");
+      }
     });
     itemsPanel.add(back);
     for (Object[] it : sorted) {
-      itemsPanel.add(itemButton((Integer) it[0], (String) it[1], (Double) it[2],
-        sizeLabel((String) it[1])));
+      itemsPanel.add(
+        itemButton((Integer) it[0], (String) it[1], (Double) it[2], sizeLabel((String) it[1])));
     }
     itemsPanel.revalidate();
     itemsPanel.repaint();
@@ -348,10 +375,12 @@ public class CashierGUI {
    */
   static String baseName(String name) {
     int i = name.lastIndexOf(" - ");
-    if (i < 0) return name;
+    if (i < 0)
+      return name;
     String suffix = name.substring(i + 3);
     for (String s : SIZES) {
-      if (suffix.equals(s)) return name.substring(0, i);
+      if (suffix.equals(s))
+        return name.substring(0, i);
     }
     return name;
   }
@@ -364,7 +393,8 @@ public class CashierGUI {
    */
   static String sizeLabel(String name) {
     String s = name.substring(name.lastIndexOf(" - ") + 3);
-    if (s.equals("MEDDIUM")) s = "MEDIUM";
+    if (s.equals("MEDDIUM"))
+      s = "MEDIUM";
     return s.charAt(0) + s.substring(1).toLowerCase();
   }
 
@@ -376,10 +406,14 @@ public class CashierGUI {
    */
   static int sizeOrder(String name) {
     String s = name.substring(name.lastIndexOf(" - ") + 3);
-    if (s.equals("KIDS")) return 0;
-    if (s.equals("SMALL")) return 1;
-    if (s.equals("MEDIUM") || s.equals("MEDDIUM")) return 2;
-    if (s.equals("LARGE")) return 3;
+    if (s.equals("KIDS"))
+      return 0;
+    if (s.equals("SMALL"))
+      return 1;
+    if (s.equals("MEDIUM") || s.equals("MEDDIUM"))
+      return 2;
+    if (s.equals("LARGE"))
+      return 3;
     return 4;
   }
 
@@ -409,12 +443,16 @@ public class CashierGUI {
   JButton itemButton(final int id, final String name, final double price, String label) {
     JButton b = gridButton(label + "<br>$" + String.format("%.2f", price));
     b.addActionListener(new ActionListener() {
-      public void actionPerformed(ActionEvent e) { addItem(id, name, price); }
+      /** Handles this control's user action. */
+      public void actionPerformed(ActionEvent e) {
+        addItem(id, name, price);
+      }
     });
     return b;
   }
 
   // ---- Right: order ticket ----
+
   /**
    * Builds the order ticket: line list, remove button, totals, and Checkout.
    *
@@ -424,8 +462,8 @@ public class CashierGUI {
     JPanel ticket = new JPanel(new BorderLayout(0, 12));
     ticket.setPreferredSize(new Dimension(280, 0));
     ticket.setBackground(PandaTheme.GREY_LIGHT);
-    ticket.setBorder(new CompoundBorder(new LineBorder(PandaTheme.GRID, 1),
-      new EmptyBorder(12, 12, 12, 12)));
+    ticket.setBorder(
+      new CompoundBorder(new LineBorder(PandaTheme.GRID, 1), new EmptyBorder(12, 12, 12, 12)));
 
     headerTotal = PandaTheme.label("Total: $0.00", PandaTheme.HEADING, PandaTheme.BLACK);
     ticket.add(headerTotal, BorderLayout.NORTH);
@@ -445,13 +483,17 @@ public class CashierGUI {
     JButton remove = PandaTheme.secondaryButton("Remove Selected");
     remove.setAlignmentX(Component.CENTER_ALIGNMENT);
     remove.addActionListener(new ActionListener() {
+      /** Handles this control's user action. */
       public void actionPerformed(ActionEvent e) {
         int idx = list.getSelectedIndex();
         if (idx >= 0) {
           int id = (Integer) orderLines.keySet().toArray()[idx];
           Object[] line = orderLines.get(id);
           int qty = (Integer) line[2];
-          if (qty > 1) line[2] = qty - 1; else orderLines.remove(id);
+          if (qty > 1)
+            line[2] = qty - 1;
+          else
+            orderLines.remove(id);
           refreshTicket();
         }
       }
@@ -460,16 +502,21 @@ public class CashierGUI {
     JPanel sums = new JPanel(new GridLayout(3, 1));
     sums.setOpaque(false);
     subtotalLabel = PandaTheme.label("Subtotal: $0.00", PandaTheme.BODY, PandaTheme.BLACK);
-    taxLabel      = PandaTheme.label("Tax: $0.00", PandaTheme.BODY, PandaTheme.BLACK);
-    totalLabel    = PandaTheme.label("Total: $0.00",
-      new Font(PandaTheme.FONT, Font.BOLD, 16), PandaTheme.BLACK);
-    sums.add(subtotalLabel); sums.add(taxLabel); sums.add(totalLabel);
+    taxLabel = PandaTheme.label("Tax: $0.00", PandaTheme.BODY, PandaTheme.BLACK);
+    totalLabel =
+      PandaTheme.label("Total: $0.00", new Font(PandaTheme.FONT, Font.BOLD, 16), PandaTheme.BLACK);
+    sums.add(subtotalLabel);
+    sums.add(taxLabel);
+    sums.add(totalLabel);
 
     JButton checkout = PandaTheme.primaryButton("Checkout");
     checkout.setAlignmentX(Component.CENTER_ALIGNMENT);
     checkout.setFont(PandaTheme.HEADING);
     checkout.addActionListener(new ActionListener() {
-      public void actionPerformed(ActionEvent e) { checkout(); }
+      /** Handles this control's user action. */
+      public void actionPerformed(ActionEvent e) {
+        checkout();
+      }
     });
 
     bottom.add(remove);
@@ -496,10 +543,11 @@ public class CashierGUI {
     try {
       int count;
       try (PreparedStatement ps = conn.prepareStatement(
-          "SELECT EntreeCount FROM MenuItem WHERE MenuItemID = ? AND Active = TRUE")) {
+             "SELECT EntreeCount FROM MenuItem WHERE MenuItemID = ? AND Active = TRUE")) {
         ps.setInt(1, id);
         try (ResultSet rs = ps.executeQuery()) {
-          if (!rs.next()) throw new SQLException("This menu item is no longer available.");
+          if (!rs.next())
+            throw new SQLException("This menu item is no longer available.");
           count = rs.getInt(1);
         }
       }
@@ -511,9 +559,10 @@ public class CashierGUI {
           String category = slot == 0 ? "Sides" : "Entrees";
           JComboBox<String> picker = new JComboBox<String>();
           List<Integer> optionIds = new ArrayList<Integer>();
-          try (PreparedStatement ps = conn.prepareStatement(
-              "SELECT MenuItemID, MenuItemName FROM MenuItem WHERE Category = ? AND Active = TRUE " +
-              "AND MenuItemName NOT LIKE '%SOUP%' ORDER BY MenuItemName")) {
+          try (
+            PreparedStatement ps = conn.prepareStatement(
+              "SELECT MenuItemID, MenuItemName FROM MenuItem WHERE Category = ? AND Active = TRUE "
+              + "AND MenuItemName NOT LIKE '%SOUP%' ORDER BY MenuItemName")) {
             ps.setString(1, category);
             try (ResultSet rs = ps.executeQuery()) {
               while (rs.next()) {
@@ -522,14 +571,17 @@ public class CashierGUI {
               }
             }
           }
-          if (optionIds.isEmpty()) throw new SQLException("No active " + category + " to choose from.");
+          if (optionIds.isEmpty())
+            throw new SQLException("No active " + category + " to choose from.");
           choices.add(new JLabel(slot == 0 ? "Side" : "Entree " + slot));
           choices.add(picker);
           pickers.add(picker);
           ids.add(optionIds);
         }
         if (JOptionPane.showConfirmDialog(frame, choices, name + " - choose your meal",
-            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return;
+              JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE)
+          != JOptionPane.OK_OPTION)
+          return;
         for (int slot = 0; slot < pickers.size(); slot++) {
           selections.add(ids.get(slot).get(pickers.get(slot).getSelectedIndex()));
           description += " / " + pickers.get(slot).getSelectedItem();
@@ -545,7 +597,8 @@ public class CashierGUI {
       }
       refreshTicket();
     } catch (SQLException ex) {
-      JOptionPane.showMessageDialog(frame, ex.getMessage(), "Cannot add item", JOptionPane.ERROR_MESSAGE);
+      JOptionPane.showMessageDialog(
+        frame, ex.getMessage(), "Cannot add item", JOptionPane.ERROR_MESSAGE);
     }
   }
 
@@ -572,20 +625,23 @@ public class CashierGUI {
     Map<Integer, Double> required = new LinkedHashMap<Integer, Double>();
     for (Object[] line : orderLines.values()) {
       for (int id : components(line)) {
-        try (PreparedStatement ps = conn.prepareStatement(
-            "SELECT Active FROM MenuItem WHERE MenuItemID = ?")) {
+        try (PreparedStatement ps =
+               conn.prepareStatement("SELECT Active FROM MenuItem WHERE MenuItemID = ?")) {
           ps.setInt(1, id);
           try (ResultSet rs = ps.executeQuery()) {
-            if (!rs.next() || !rs.getBoolean(1)) throw new SQLException("A selected item is no longer active.");
+            if (!rs.next() || !rs.getBoolean(1))
+              throw new SQLException("A selected item is no longer active.");
           }
         }
-        try (PreparedStatement ps = conn.prepareStatement(
+        try (
+          PreparedStatement ps = conn.prepareStatement(
             "SELECT InventoryID, QuantityRequired FROM MenuItemInventory WHERE MenuItemID = ?")) {
           ps.setInt(1, id);
           try (ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
               int inventoryId = rs.getInt(1);
-              required.put(inventoryId, required.getOrDefault(inventoryId, 0.0) + rs.getDouble(2) * (Integer) line[2]);
+              required.put(inventoryId,
+                required.getOrDefault(inventoryId, 0.0) + rs.getDouble(2) * (Integer) line[2]);
             }
           }
         }
@@ -593,10 +649,11 @@ public class CashierGUI {
     }
     for (Map.Entry<Integer, Double> entry : required.entrySet()) {
       try (PreparedStatement ps = conn.prepareStatement(
-          "SELECT ItemName, Quantity, Active FROM Inventory WHERE InventoryID = ?")) {
+             "SELECT ItemName, Quantity, Active FROM Inventory WHERE InventoryID = ?")) {
         ps.setInt(1, entry.getKey());
         try (ResultSet rs = ps.executeQuery()) {
-          if (!rs.next()) throw new SQLException("A required inventory item is missing.");
+          if (!rs.next())
+            throw new SQLException("A required inventory item is missing.");
           if (!rs.getBoolean(3) || rs.getDouble(2) + 0.000001 < entry.getValue())
             throw new SQLException("Not enough " + rs.getString(1) + " for this order.");
         }
@@ -622,8 +679,8 @@ public class CashierGUI {
     for (Object[] line : orderLines.values()) {
       String name = (String) line[0];
 
-      ticketModel.addElement(String.format("%dx %-24s $%.2f",
-        (Integer) line[2], name, (Double) line[1] * (Integer) line[2]));
+      ticketModel.addElement(String.format(
+        "%dx %-24s $%.2f", (Integer) line[2], name, (Double) line[1] * (Integer) line[2]));
     }
     double sub = subtotal(), tax = sub * TAX_RATE, tot = sub + tax;
     headerTotal.setText(String.format("Total: $%.2f", tot));
@@ -633,6 +690,7 @@ public class CashierGUI {
   }
 
   // ---- Checkout: write the order to the database in one transaction ----
+
   /**
    * Writes the order to the database in one transaction: Orders row,
    * OrderItem rows, OrderItemSelection rows, and inventory decrements.
@@ -644,9 +702,10 @@ public class CashierGUI {
       return;
     }
     double sub = subtotal(), tot = sub * (1 + TAX_RATE);
-    int confirm = JOptionPane.showConfirmDialog(frame,
-      String.format("Charge $%.2f?", tot), "Checkout", JOptionPane.YES_NO_OPTION);
-    if (confirm != JOptionPane.YES_OPTION) return;
+    int confirm = JOptionPane.showConfirmDialog(
+      frame, String.format("Charge $%.2f?", tot), "Checkout", JOptionPane.YES_NO_OPTION);
+    if (confirm != JOptionPane.YES_OPTION)
+      return;
 
     try {
       conn.setAutoCommit(false);
@@ -659,30 +718,31 @@ public class CashierGUI {
       validateCart();
 
       Statement st = conn.createStatement();
-      ResultSet rs = st.executeQuery(
-        "SELECT (SELECT COALESCE(MAX(OrderID),0)+1 FROM Orders) AS oid, " +
-        "       (SELECT COALESCE(MAX(OrderItemID),0) FROM OrderItem) AS oiid");
+      ResultSet rs =
+        st.executeQuery("SELECT (SELECT COALESCE(MAX(OrderID),0)+1 FROM Orders) AS oid, "
+          + "       (SELECT COALESCE(MAX(OrderItemID),0) FROM OrderItem) AS oiid");
       rs.next();
       int orderId = rs.getInt("oid");
       int nextOrderItemId = rs.getInt("oiid");
-      rs.close(); st.close();
+      rs.close();
+      st.close();
 
-      PreparedStatement insOrder = conn.prepareStatement(
-        "INSERT INTO Orders (OrderID, OrderDate, OrderTime, Total) " +
-        "VALUES (?, CURRENT_DATE, CURRENT_TIME, ?)");
+      PreparedStatement insOrder =
+        conn.prepareStatement("INSERT INTO Orders (OrderID, OrderDate, OrderTime, Total) "
+          + "VALUES (?, CURRENT_DATE, CURRENT_TIME, ?)");
       insOrder.setInt(1, orderId);
       insOrder.setDouble(2, tot);
       insOrder.executeUpdate();
 
-      PreparedStatement insItem = conn.prepareStatement(
-        "INSERT INTO OrderItem (OrderItemID, OrderID, MenuItemID, Qty) " +
-        "VALUES (?, ?, ?, ?)");
+      PreparedStatement insItem =
+        conn.prepareStatement("INSERT INTO OrderItem (OrderItemID, OrderID, MenuItemID, Qty) "
+          + "VALUES (?, ?, ?, ?)");
       PreparedStatement decInv = conn.prepareStatement(
-        "UPDATE Inventory i SET Quantity = i.Quantity - mii.QuantityRequired * ? " +
-        "FROM MenuItemInventory mii " +
-        "WHERE mii.MenuItemID = ? " +
-        "AND i.InventoryID = mii.InventoryID " +
-        "AND i.Active = TRUE");
+        "UPDATE Inventory i SET Quantity = i.Quantity - mii.QuantityRequired * ? "
+        + "FROM MenuItemInventory mii "
+        + "WHERE mii.MenuItemID = ? "
+        + "AND i.InventoryID = mii.InventoryID "
+        + "AND i.Active = TRUE");
       PreparedStatement insSelection = conn.prepareStatement(
         "INSERT INTO OrderItemSelection (OrderItemID, MenuItemID, Qty) VALUES (?, ?, ?)");
       for (Map.Entry<Integer, Object[]> e : orderLines.entrySet()) {
@@ -711,15 +771,15 @@ public class CashierGUI {
         }
       }
 
-      try(Statement check = conn.createStatement();
-        ResultSet neg = check.executeQuery(
-          "SELECT itemname FROM Inventory WHERE Quantity < 0")) {
-            if(neg.next()) {
-              conn.rollback();
-              JOptionPane.showMessageDialog(frame, "Not enough " + neg.getString(1) + " to complete this order.");
-              return;
-            }
-          }
+      try (Statement check = conn.createStatement();
+        ResultSet neg = check.executeQuery("SELECT itemname FROM Inventory WHERE Quantity < 0")) {
+        if (neg.next()) {
+          conn.rollback();
+          JOptionPane.showMessageDialog(
+            frame, "Not enough " + neg.getString(1) + " to complete this order.");
+          return;
+        }
+      }
 
       insOrder.close();
       insItem.close();
@@ -727,21 +787,30 @@ public class CashierGUI {
       insSelection.close();
       conn.commit();
       JOptionPane.showMessageDialog(frame,
-        String.format("Order #%d submitted. Total: $%.2f\nThank you, have a nice day!",
-          orderId, tot));
+        String.format(
+          "Order #%d submitted. Total: $%.2f\nThank you, have a nice day!", orderId, tot));
       orderLines.clear();
       refreshTicket();
     } catch (SQLException ex) {
-      try { conn.rollback(); } catch (SQLException ignored) {}
+      try {
+        conn.rollback();
+      } catch (SQLException ignored) {
+      }
       JOptionPane.showMessageDialog(frame, "Order failed: " + ex.getMessage());
     } finally {
-      try { conn.setAutoCommit(true); } catch (SQLException ignored) {}
+      try {
+        conn.setAutoCommit(true);
+      } catch (SQLException ignored) {
+      }
     }
   }
 
   static {
     Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
-      public void run() { closeConnection(); }
+      /** Runs the UI initialization or refresh callback. */
+      public void run() {
+        closeConnection();
+      }
     }));
   }
 }

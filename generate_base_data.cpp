@@ -1,35 +1,35 @@
+/** Generates schema and base inventory, menu, and recipe SQL from CSV input. */
+
 #include <bits/stdc++.h>
 #include <string>
 #include "data_utils.h"
 using namespace std;
 
+/** Reads generator arguments and writes the generated SQL to standard output. */
 int main(int argc, char **argv) {
-
     if (argc < 4) {
-        cerr << "Usage: "
-            << argv[0]
-            << " MenuItems.csv Inventory.csv Recipes.csv\n";
+        cerr << "Usage: " << argv[0] << " MenuItems.csv Inventory.csv Recipes.csv\n";
         return 1;
     }
 
-    string menu_path = argv[1];
+    string menuPath = argv[1];
 
-    string inventory_path = argv[2];
+    string inventoryPath = argv[2];
 
-    vector<InventoryItem> inventory = load_inventory(inventory_path);
+    vector<InventoryItem> inventory = loadInventory(inventoryPath);
 
-    vector<MenuItem> menu = load_menu(menu_path);
-    map<string, int> menu_name_to_id;
-    map<string, int> inventory_name_to_id;
+    vector<MenuItem> menu = loadMenu(menuPath);
+    map<string, int> menuNameToId;
+    map<string, int> inventoryNameToId;
 
     for (const auto &item : menu) {
-        menu_name_to_id[item.name] = item.id;
+        menuNameToId[item.name] = item.id;
     }
 
     for (const auto &item : inventory) {
-        inventory_name_to_id[item.name] = item.id;
+        inventoryNameToId[item.name] = item.id;
     }
-    vector<MenuItemInventoryRow> recipes = load_recipes(argv[3], menu_name_to_id, inventory_name_to_id);
+    vector<MenuItemInventoryRow> recipes = loadRecipes(argv[3], menuNameToId, inventoryNameToId);
 
     // CREATE TABLES
     cout << "CREATE TABLE Inventory ("
@@ -97,17 +97,13 @@ int main(int argc, char **argv) {
     // INVENTORY
 
     cout << "INSERT INTO Inventory "
-            "(InventoryID, ItemName, Unit, Minimum_Threshold, Quantity, ShelfLifeDays, Active) VALUES\n";
+            "(InventoryID, ItemName, Unit, Minimum_Threshold, Quantity, ShelfLifeDays, Active) "
+            "VALUES\n";
 
     for (size_t i = 0; i < inventory.size(); ++i) {
-        cout << "("
-            << inventory[i].id << ",'"
-            << sql_escape(inventory[i].name) << "','"
-            << sql_escape(inventory[i].unit) << "',"
-            << inventory[i].minimum_threshold << ","
-            << inventory[i].quantity << ","
-            << inventory[i].shelf_life
-            << ",TRUE)";
+        cout << "(" << inventory[i].id << ",'" << sqlEscape(inventory[i].name) << "','"
+             << sqlEscape(inventory[i].unit) << "'," << inventory[i].minimumThreshold << ","
+             << inventory[i].quantity << "," << inventory[i].shelfLife << ",TRUE)";
 
         if (i + 1 < inventory.size())
             cout << ",\n";
@@ -120,18 +116,10 @@ int main(int argc, char **argv) {
             "(MenuItemID, MenuItemName, Price, Category, EntreeCount, Active) VALUES\n";
 
     for (size_t i = 0; i < menu.size(); ++i) {
-        cout << "("
-            << menu[i].id
-            << ",'"
-            << sql_escape(menu[i].name)
-            << "',"
-            << fixed
-            << setprecision(2)
-            << menu[i].price
-            << ",'"
-            << sql_escape(menu[i].category)
-            << "'," << meal_entree_count(menu[i].name) << ",TRUE"
-            << ")";
+        cout << "(" << menu[i].id << ",'" << sqlEscape(menu[i].name) << "'," << fixed
+             << setprecision(2) << menu[i].price << ",'" << sqlEscape(menu[i].category) << "',"
+             << mealEntreeCount(menu[i].name) << ",TRUE"
+             << ")";
 
         if (i + 1 < menu.size())
             cout << ",\n";
@@ -145,12 +133,8 @@ int main(int argc, char **argv) {
     }
 
     for (size_t i = 0; i < recipes.size(); ++i) {
-        cout << "("
-            << recipes[i].menuItemID << ","
-            << recipes[i].inventoryID << ","
-            << fixed << setprecision(3)
-            << recipes[i].quantityRequired
-            << ")";
+        cout << "(" << recipes[i].menuItemId << "," << recipes[i].inventoryId << "," << fixed
+             << setprecision(3) << recipes[i].quantityRequired << ")";
 
         if (i + 1 < recipes.size())
             cout << ",\n";

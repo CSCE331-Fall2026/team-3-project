@@ -1,3 +1,5 @@
+-- Remove the project sales, menu, recipe, and inventory tables.
+
 DROP TABLE IF EXISTS OrderItemSelection;
 DROP TABLE IF EXISTS "inventoryitem" CASCADE;
 DROP TABLE IF EXISTS "inventory" CASCADE;

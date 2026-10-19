@@ -1,3 +1,5 @@
+/** Defines shared colors, fonts, controls, and table renderers. */
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
@@ -13,43 +15,44 @@ import java.awt.event.MouseEvent;
  * RED and GREY match CashierGUI.
  */
 public class PandaTheme {
-
   // same as CashierGUI
-  static final Color RED        = new Color(0xC8, 0x3A, 0x2E);
-  static final Color GREY       = new Color(0xC7, 0xCE, 0xD6);
-  static final Color WHITE      = Color.WHITE;
-  static final Color BLACK      = Color.BLACK;
+  static final Color RED = new Color(0xC8, 0x3A, 0x2E);
+  static final Color GREY = new Color(0xC7, 0xCE, 0xD6);
+  static final Color WHITE = Color.WHITE;
+  static final Color BLACK = Color.BLACK;
 
   // shades of the above
-  static final Color RED_DARK   = new Color(0xA1, 0x2E, 0x24);  // red hover
-  static final Color RED_LIGHT  = new Color(0xF6, 0xDC, 0xD9);  // unsaved rows
-  static final Color GREY_DARK  = new Color(0xB0, 0xB8, 0xC1);  // grey hover, borders
-  static final Color GREY_LIGHT = new Color(0xEE, 0xF1, 0xF4);  // row stripes
-  static final Color GRID       = new Color(0xDD, 0xE2, 0xE7);
-  static final Color MUTED      = new Color(0x5F, 0x67, 0x70);
+  static final Color RED_DARK = new Color(0xA1, 0x2E, 0x24); // red hover
+  static final Color RED_LIGHT = new Color(0xF6, 0xDC, 0xD9); // unsaved rows
+  static final Color GREY_DARK = new Color(0xB0, 0xB8, 0xC1); // grey hover, borders
+  static final Color GREY_LIGHT = new Color(0xEE, 0xF1, 0xF4); // row stripes
+  static final Color GRID = new Color(0xDD, 0xE2, 0xE7);
+  static final Color MUTED = new Color(0x5F, 0x67, 0x70);
 
   // status
-  static final Color OK_GREEN   = new Color(0x2E, 0x7D, 0x32);
+  static final Color OK_GREEN = new Color(0x2E, 0x7D, 0x32);
 
   static final String FONT = "Segoe UI";
-  static final Font TITLE   = new Font(FONT, Font.BOLD, 22);
+  static final Font TITLE = new Font(FONT, Font.BOLD, 22);
   static final Font HEADING = new Font(FONT, Font.BOLD, 18);
-  static final Font BODY    = new Font(FONT, Font.PLAIN, 14);
-  static final Font BOLD    = new Font(FONT, Font.BOLD, 14);
-  static final Font SMALL   = new Font(FONT, Font.PLAIN, 12);
+  static final Font BODY = new Font(FONT, Font.PLAIN, 14);
+  static final Font BOLD = new Font(FONT, Font.BOLD, 14);
+  static final Font SMALL = new Font(FONT, Font.PLAIN, 12);
 
   /** Windows/Mac native look for everything not styled by hand (dialogs, scrollbars). */
   static void useSystemLook() {
     try {
       UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-    } catch (Exception e) { /* keep the current look */ }
+    } catch (Exception e) { /* keep the current look */
+    }
   }
 
   /** Java's default look; CashierGUI was designed against this one. */
   static void useJavaLook() {
     try {
       UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
-    } catch (Exception e) { /* keep the current look */ }
+    } catch (Exception e) { /* keep the current look */
+    }
   }
 
   /**
@@ -63,6 +66,7 @@ public class PandaTheme {
    */
   static JButton button(String text, Color bg, Color fg, Color hover) {
     final JButton b = new JButton(text) {
+      /** Paints this control using its current state. */
       protected void paintComponent(Graphics g) {
         g.setColor(getBackground());
         g.fillRect(0, 0, getWidth(), getHeight());
@@ -80,9 +84,12 @@ public class PandaTheme {
     b.putClientProperty("baseColor", bg);
     b.putClientProperty("hoverColor", hover);
     b.addMouseListener(new MouseAdapter() {
+      /** Applies the hover appearance when the pointer enters. */
       public void mouseEntered(MouseEvent e) {
         b.setBackground((Color) b.getClientProperty("hoverColor"));
       }
+
+      /** Restores the control appearance when the pointer leaves. */
       public void mouseExited(MouseEvent e) {
         b.setBackground((Color) b.getClientProperty("baseColor"));
       }
@@ -99,7 +106,7 @@ public class PandaTheme {
   static JButton primaryButton(String text) {
     return button(text, RED, WHITE, RED_DARK);
   }
-  
+
   /**
    * Secondary button with grey background and black text.
    *
@@ -174,11 +181,15 @@ public class PandaTheme {
    */
   static JTable styledTable(final javax.swing.table.AbstractTableModel m) {
     JTable t = new JTable(m) {
+      /** Applies the shared table styling to the rendered cell. */
       public Component prepareRenderer(TableCellRenderer r, int row, int col) {
         Component c = super.prepareRenderer(r, row, col);
         if (!isRowSelected(row)) {
-          if (m instanceof TableEdit<?> && ((TableEdit<?>) m).isPending(convertRowIndexToModel(row))) c.setBackground(RED_LIGHT);
-          else c.setBackground(row % 2 == 0 ? WHITE : GREY_LIGHT);
+          if (m instanceof TableEdit<?>
+            && ((TableEdit<?>) m).isPending(convertRowIndexToModel(row)))
+            c.setBackground(RED_LIGHT);
+          else
+            c.setBackground(row % 2 == 0 ? WHITE : GREY_LIGHT);
         }
         return c;
       }
@@ -195,15 +206,17 @@ public class PandaTheme {
     t.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
     DefaultTableCellRenderer header = new DefaultTableCellRenderer() {
-      public Component getTableCellRendererComponent(JTable tb, Object v,
-          boolean sel, boolean focus, int row, int col) {
+      /** Formats and styles the value shown in this table cell. */
+      public Component getTableCellRendererComponent(
+        JTable tb, Object v, boolean sel, boolean focus, int row, int col) {
         super.getTableCellRendererComponent(tb, v, sel, focus, row, col);
         setBackground(GREY);
         setForeground(BLACK);
         setFont(BOLD);
         int align = SwingConstants.LEFT;
         TableCellRenderer cr = tb.getColumnModel().getColumn(col).getCellRenderer();
-        if (cr instanceof JLabel) align = ((JLabel) cr).getHorizontalAlignment();
+        if (cr instanceof JLabel)
+          align = ((JLabel) cr).getHorizontalAlignment();
         setHorizontalAlignment(align);
         setBorder(new EmptyBorder(0, 8, 0, align == SwingConstants.RIGHT ? 12 : 8));
         return this;
@@ -215,8 +228,9 @@ public class PandaTheme {
 
     // left padding on text cells
     DefaultTableCellRenderer text = new DefaultTableCellRenderer() {
-      public Component getTableCellRendererComponent(JTable tb, Object v,
-          boolean sel, boolean focus, int row, int col) {
+      /** Formats and styles the value shown in this table cell. */
+      public Component getTableCellRendererComponent(
+        JTable tb, Object v, boolean sel, boolean focus, int row, int col) {
         super.getTableCellRendererComponent(tb, v, sel, focus, row, col);
         setBorder(new EmptyBorder(0, 8, 0, 8));
         return this;
@@ -234,10 +248,12 @@ public class PandaTheme {
    */
   static DefaultTableCellRenderer numberRenderer(final String prefix) {
     DefaultTableCellRenderer r = new DefaultTableCellRenderer() {
-      public Component getTableCellRendererComponent(JTable tb, Object v,
-          boolean sel, boolean focus, int row, int col) {
+      /** Formats and styles the value shown in this table cell. */
+      public Component getTableCellRendererComponent(
+        JTable tb, Object v, boolean sel, boolean focus, int row, int col) {
         super.getTableCellRendererComponent(tb, v, sel, focus, row, col);
-        if (v instanceof Double) setText(prefix + String.format("%.2f", (Double) v));
+        if (v instanceof Double)
+          setText(prefix + String.format("%.2f", (Double) v));
         setBorder(new EmptyBorder(0, 8, 0, 12));
         return this;
       }
@@ -253,8 +269,9 @@ public class PandaTheme {
    */
   static DefaultTableCellRenderer unsavedRenderer() {
     DefaultTableCellRenderer r = new DefaultTableCellRenderer() {
-      public Component getTableCellRendererComponent(JTable tb, Object v,
-          boolean sel, boolean focus, int row, int col) {
+      /** Formats and styles the value shown in this table cell. */
+      public Component getTableCellRendererComponent(
+        JTable tb, Object v, boolean sel, boolean focus, int row, int col) {
         super.getTableCellRendererComponent(tb, v, sel, focus, row, col);
         setText("*".equals(v) ? "unsaved" : "");
         setForeground(RED_DARK);
@@ -273,8 +290,9 @@ public class PandaTheme {
    */
   static DefaultTableCellRenderer statusRenderer() {
     return new DefaultTableCellRenderer() {
-      public Component getTableCellRendererComponent(JTable tb, Object v,
-          boolean sel, boolean focus, int row, int col) {
+      /** Formats and styles the value shown in this table cell. */
+      public Component getTableCellRendererComponent(
+        JTable tb, Object v, boolean sel, boolean focus, int row, int col) {
         super.getTableCellRendererComponent(tb, v, sel, focus, row, col);
         boolean low = "LOW".equals(v);
         setText(low ? "●  LOW" : "●  OK");

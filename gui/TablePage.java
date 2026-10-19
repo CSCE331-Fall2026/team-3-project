@@ -1,3 +1,5 @@
+/** Builds manager tables with loading, editing, and saving controls. */
+
 import java.sql.SQLException;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -12,6 +14,8 @@ import java.util.Map;
 /**
  * Editable table page: title, optional note, table, unsaved counter, Refresh and Save.
  * Subclasses define load() and store() for the edited column.
+ *
+ * @param <T> row item type
  */
 public abstract class TablePage<T> {
   final Component parent;
@@ -33,8 +37,8 @@ public abstract class TablePage<T> {
    * @param prefix number prefix for the edited column (e.g. "$")
    * @param widths preferred column widths
    */
-  TablePage(Component parent, String title, String note, String noun,
-            TableEdit<T> m, String prefix, int[] widths) {
+  TablePage(Component parent, String title, String note, String noun, TableEdit<T> m, String prefix,
+    int[] widths) {
     this.parent = parent;
     this.title = title;
     this.noun = noun;
@@ -42,7 +46,8 @@ public abstract class TablePage<T> {
     m.parent = parent;
     table = PandaTheme.styledTable(m);
     table.getColumnModel().getColumn(1).setCellRenderer(PandaTheme.numberRenderer(prefix));
-    table.getColumnModel().getColumn(widths.length - 1)
+    table.getColumnModel()
+      .getColumn(widths.length - 1)
       .setCellRenderer(PandaTheme.unsavedRenderer());
     for (int i = 0; i < widths.length; i++) {
       table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
@@ -64,11 +69,17 @@ public abstract class TablePage<T> {
 
     JButton refresh = PandaTheme.secondaryButton("Refresh");
     refresh.addActionListener(new ActionListener() {
-      public void actionPerformed(ActionEvent e) { refresh(); }
+      /** Handles this control's user action. */
+      public void actionPerformed(ActionEvent e) {
+        refresh();
+      }
     });
     JButton save = PandaTheme.primaryButton("Save Changes");
     save.addActionListener(new ActionListener() {
-      public void actionPerformed(ActionEvent e) { save(); }
+      /** Handles this control's user action. */
+      public void actionPerformed(ActionEvent e) {
+        save();
+      }
     });
     JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
     buttons.setOpaque(false);
@@ -80,7 +91,10 @@ public abstract class TablePage<T> {
     bottom.add(buttons, BorderLayout.EAST);
 
     model.addTableModelListener(new TableModelListener() {
-      public void tableChanged(TableModelEvent e) { updateUnsavedLabel(); }
+      /** Updates the unsaved-change indicator after table edits. */
+      public void tableChanged(TableModelEvent e) {
+        updateUnsavedLabel();
+      }
     });
 
     panel.setBackground(PandaTheme.WHITE);
@@ -112,11 +126,14 @@ public abstract class TablePage<T> {
    * @param n number of pending changes
    * @return true to proceed with the save
    */
-  boolean confirmSave(int n) { return true; }
+  boolean confirmSave(int n) {
+    return true;
+  }
 
   /** Stops any ongoing cell editing in the table. */
   void stopEditing() {
-    if (table.isEditing()) table.getCellEditor().stopCellEditing();
+    if (table.isEditing())
+      table.getCellEditor().stopCellEditing();
   }
 
   /**
@@ -124,23 +141,26 @@ public abstract class TablePage<T> {
    *
    * @return true if there are pending edits
    */
-  boolean hasUnsaved() { return !model.pending.isEmpty(); }
+  boolean hasUnsaved() {
+    return !model.pending.isEmpty();
+  }
 
   /** Reloads the table from the database. */
   void reload() {
     try {
       model.setItems(load());
     } catch (SQLException ex) {
-      JOptionPane.showMessageDialog(parent,
-        "Error loading " + title.toLowerCase() + ": " + ex.getMessage());
+      JOptionPane.showMessageDialog(
+        parent, "Error loading " + title.toLowerCase() + ": " + ex.getMessage());
     }
   }
 
   /** Refreshes the table, optionally discarding unsaved changes. */
   void refresh() {
     stopEditing();
-    if (!hasUnsaved() || JOptionPane.showConfirmDialog(parent,
-        "Discard unsaved changes?", "Refresh", JOptionPane.YES_NO_OPTION)
+    if (!hasUnsaved()
+      || JOptionPane.showConfirmDialog(
+           parent, "Discard unsaved changes?", "Refresh", JOptionPane.YES_NO_OPTION)
         == JOptionPane.YES_OPTION) {
       reload();
     }
@@ -154,7 +174,8 @@ public abstract class TablePage<T> {
       JOptionPane.showMessageDialog(parent, "No changes to save.");
       return;
     }
-    if (!confirmSave(n)) return;
+    if (!confirmSave(n))
+      return;
     try {
       store(model.pending);
       reload();

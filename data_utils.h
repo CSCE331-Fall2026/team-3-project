@@ -1,6 +1,9 @@
+/** Declares shared menu, inventory, shipment, CSV, and date utilities. */
+
 #ifndef DATA_UTILS_H
 #define DATA_UTILS_H
 
+#include <ctime>
 #include <string>
 #include <vector>
 #include <map>
@@ -19,37 +22,54 @@ struct InventoryItem {
     string name;
     string unit;
     int quantity;
-    int minimum_threshold;
-    int shelf_life;
+    int minimumThreshold;
+    int shelfLife;
 };
 
 struct MenuItemInventoryRow {
-    int menuItemID;
-    int inventoryID;
+    int menuItemId;
+    int inventoryId;
     double quantityRequired;
 };
 
 struct Shipment {
-    long long shipmentID;
-    int inventoryID;
+    long long shipmentId;
+    int inventoryId;
     double wholesalePrice;
     double quantity;
     string receivedDate;
     string expirationDate;
 };
 
-string trim_quotes(const string &s);
-vector<string> split_csv_line(const string &line);
-string sql_escape(const string &s);
+/** Removes a matching pair of surrounding double quotes. */
+string trimQuotes(const string &s);
 
-int meal_entree_count(const string &name);
-string classify_item(const string &original_name);
+/** Splits a CSV row while preserving commas inside quoted fields. */
+vector<string> splitCsvLine(const string &line);
 
-vector<InventoryItem> load_inventory(const string &path);
-vector<MenuItem> load_menu(const string &path);
-vector<MenuItemInventoryRow> load_recipes(const string &path, const map<string, int> &menu_name_to_id, const map<string, int> &inventory_name_to_id);
+/** Escapes single quotes for SQL string literals. */
+string sqlEscape(const string &s);
 
-string format_date(const tm &date);
-tm add_days(tm date, int days);
+/** Returns the number of entree selections included in a meal. */
+int mealEntreeCount(const string &name);
+
+/** Maps a menu name to its category or marks an excluded component. */
+string classifyItem(const string &originalName);
+
+/** Loads and validates inventory records from a CSV file. */
+vector<InventoryItem> loadInventory(const string &path);
+
+/** Loads and validates menu records, assigning IDs and categories. */
+vector<MenuItem> loadMenu(const string &path);
+
+/** Loads recipes and resolves ingredient and menu names to IDs. */
+vector<MenuItemInventoryRow> loadRecipes(const string &path, const map<string, int> &menuNameToId,
+    const map<string, int> &inventoryNameToId);
+
+/** Formats a calendar date as an ISO date string. */
+string formatDate(const tm &date);
+
+/** Advances and normalizes a calendar date by the requested number of days. */
+tm addDays(tm date, int days);
 
 #endif

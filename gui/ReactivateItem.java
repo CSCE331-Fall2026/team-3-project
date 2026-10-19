@@ -1,3 +1,5 @@
+/** Provides the dialog for restoring a discontinued inventory ingredient. */
+
 import java.sql.SQLException;
 import java.util.List;
 
@@ -15,7 +17,6 @@ import java.awt.event.ActionListener;
  * The manager only provides the new starting quantity.
  */
 public class ReactivateItem extends JDialog {
-
   private final InventoryDAO dao;
   private final Runnable onReactivated;
 
@@ -35,11 +36,7 @@ public class ReactivateItem extends JDialog {
    * @param dao inventory data access object
    * @param onReactivated callback run after a successful reactivation
    */
-  public ReactivateItem(
-      JFrame owner,
-      final InventoryDAO dao,
-      final Runnable onReactivated) {
-
+  public ReactivateItem(JFrame owner, final InventoryDAO dao, final Runnable onReactivated) {
     super(owner, "Reactivate Inventory Item", true);
 
     this.dao = dao;
@@ -50,25 +47,17 @@ public class ReactivateItem extends JDialog {
     try {
       inactiveItems = dao.fetchInactiveItems();
     } catch (SQLException ex) {
-
-      JOptionPane.showMessageDialog(
-        owner,
-        "Could not load discontinued inventory items:\n" +
-        ex.getMessage(),
-        "Database Error",
-        JOptionPane.ERROR_MESSAGE
-      );
+      JOptionPane.showMessageDialog(owner,
+        "Could not load discontinued inventory items:\n" + ex.getMessage(), "Database Error",
+        JOptionPane.ERROR_MESSAGE);
 
       dispose();
       return;
     }
 
     if (inactiveItems.isEmpty()) {
-
       JOptionPane.showMessageDialog(
-        owner,
-        "There are no discontinued inventory items to reactivate."
-      );
+        owner, "There are no discontinued inventory items to reactivate.");
 
       dispose();
       return;
@@ -82,19 +71,12 @@ public class ReactivateItem extends JDialog {
 
   /** Builds the GUI for the dialog. */
   private void build() {
-
     JPanel root = new JPanel(new BorderLayout(0, 12));
     root.setBackground(PandaTheme.WHITE);
     root.setBorder(new EmptyBorder(18, 20, 18, 20));
 
-    root.add(
-      PandaTheme.label(
-        "Reactivate Inventory Item",
-        PandaTheme.HEADING,
-        PandaTheme.BLACK
-      ),
-      BorderLayout.NORTH
-    );
+    root.add(PandaTheme.label("Reactivate Inventory Item", PandaTheme.HEADING, PandaTheme.BLACK),
+      BorderLayout.NORTH);
 
     // -----------------------------------------------------
     // Item dropdown
@@ -109,17 +91,13 @@ public class ReactivateItem extends JDialog {
     itemBox = new JComboBox<String>(names);
     itemBox.setFont(PandaTheme.BODY);
 
-    unitValue =
-      PandaTheme.label("", PandaTheme.BODY, PandaTheme.BLACK);
+    unitValue = PandaTheme.label("", PandaTheme.BODY, PandaTheme.BLACK);
 
-    thresholdValue =
-      PandaTheme.label("", PandaTheme.BODY, PandaTheme.BLACK);
+    thresholdValue = PandaTheme.label("", PandaTheme.BODY, PandaTheme.BLACK);
 
-    shelfLifeValue =
-      PandaTheme.label("", PandaTheme.BODY, PandaTheme.BLACK);
+    shelfLifeValue = PandaTheme.label("", PandaTheme.BODY, PandaTheme.BLACK);
 
-    quantityField =
-      PandaTheme.textField(18);
+    quantityField = PandaTheme.textField(18);
 
     JPanel form = new JPanel(new GridBagLayout());
     form.setOpaque(false);
@@ -128,45 +106,15 @@ public class ReactivateItem extends JDialog {
     c.insets = new Insets(5, 0, 5, 12);
     c.anchor = GridBagConstraints.WEST;
 
-    addRow(
-      form,
-      c,
-      0,
-      "Discontinued item",
-      itemBox
-    );
+    addRow(form, c, 0, "Discontinued item", itemBox);
 
-    addRow(
-      form,
-      c,
-      1,
-      "Unit",
-      unitValue
-    );
+    addRow(form, c, 1, "Unit", unitValue);
 
-    addRow(
-      form,
-      c,
-      2,
-      "Minimum threshold",
-      thresholdValue
-    );
+    addRow(form, c, 2, "Minimum threshold", thresholdValue);
 
-    addRow(
-      form,
-      c,
-      3,
-      "Shelf life",
-      shelfLifeValue
-    );
+    addRow(form, c, 3, "Shelf life", shelfLifeValue);
 
-    addRow(
-      form,
-      c,
-      4,
-      "Starting quantity",
-      quantityField
-    );
+    addRow(form, c, 4, "Starting quantity", quantityField);
 
     root.add(form, BorderLayout.CENTER);
 
@@ -174,17 +122,13 @@ public class ReactivateItem extends JDialog {
     // Buttons
     // -----------------------------------------------------
 
-    error =
-      PandaTheme.label(" ", PandaTheme.SMALL, PandaTheme.RED);
+    error = PandaTheme.label(" ", PandaTheme.SMALL, PandaTheme.RED);
 
-    JButton cancel =
-      PandaTheme.secondaryButton("Cancel");
+    JButton cancel = PandaTheme.secondaryButton("Cancel");
 
-    JButton reactivate =
-      PandaTheme.primaryButton("Reactivate Item");
+    JButton reactivate = PandaTheme.primaryButton("Reactivate Item");
 
-    JPanel buttons =
-      new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+    JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
 
     buttons.setOpaque(false);
     buttons.add(cancel);
@@ -203,18 +147,21 @@ public class ReactivateItem extends JDialog {
     // -----------------------------------------------------
 
     itemBox.addActionListener(new ActionListener() {
+      /** Handles this control's user action. */
       public void actionPerformed(ActionEvent e) {
         updateItemDetails();
       }
     });
 
     cancel.addActionListener(new ActionListener() {
+      /** Handles this control's user action. */
       public void actionPerformed(ActionEvent e) {
         dispose();
       }
     });
 
     reactivate.addActionListener(new ActionListener() {
+      /** Handles this control's user action. */
       public void actionPerformed(ActionEvent e) {
         reactivateSelectedItem();
       }
@@ -236,27 +183,14 @@ public class ReactivateItem extends JDialog {
    * @param label label text
    * @param field field component
    */
-  private void addRow(
-      JPanel panel,
-      GridBagConstraints c,
-      int row,
-      String label,
-      JComponent field) {
-
+  private void addRow(JPanel panel, GridBagConstraints c, int row, String label, JComponent field) {
     c.gridy = row;
 
     c.gridx = 0;
     c.weightx = 0;
     c.fill = GridBagConstraints.NONE;
 
-    panel.add(
-      PandaTheme.label(
-        label,
-        PandaTheme.BOLD,
-        PandaTheme.BLACK
-      ),
-      c
-    );
+    panel.add(PandaTheme.label(label, PandaTheme.BOLD, PandaTheme.BLACK), c);
 
     c.gridx = 1;
     c.weightx = 1;
@@ -267,32 +201,25 @@ public class ReactivateItem extends JDialog {
 
   /** Updates the details of the selected inventory item in the form fields. */
   private void updateItemDetails() {
-
     int index = itemBox.getSelectedIndex();
 
     if (index < 0) {
       return;
     }
 
-    InventoryDAO.Item item =
-      inactiveItems.get(index);
+    InventoryDAO.Item item = inactiveItems.get(index);
 
     unitValue.setText(item.unit);
 
-    thresholdValue.setText(
-      String.format("%.2f", item.threshold)
-    );
+    thresholdValue.setText(String.format("%.2f", item.threshold));
 
-    shelfLifeValue.setText(
-      item.shelfLifeDays + " days"
-    );
+    shelfLifeValue.setText(item.shelfLifeDays + " days");
 
     quantityField.setText("");
   }
 
   /** Reactivates the selected inventory item after confirming the starting quantity. */
   private void reactivateSelectedItem() {
-
     int index = itemBox.getSelectedIndex();
 
     if (index < 0) {
@@ -300,55 +227,37 @@ public class ReactivateItem extends JDialog {
       return;
     }
 
-    InventoryDAO.Item item =
-      inactiveItems.get(index);
+    InventoryDAO.Item item = inactiveItems.get(index);
 
-    Double quantity =
-      parseNonNegative(quantityField.getText());
+    Double quantity = parseNonNegative(quantityField.getText());
 
     if (quantity == null) {
-      error.setText(
-        "Starting quantity must be a non-negative number."
-      );
+      error.setText("Starting quantity must be a non-negative number.");
       return;
     }
 
-    int confirm =
-      JOptionPane.showConfirmDialog(
-        this,
-        "Reactivate \"" + item.name + "\" with a starting quantity of " +
-        quantity + " " + item.unit + "?",
-        "Reactivate Inventory Item",
-        JOptionPane.YES_NO_OPTION
-      );
+    int confirm = JOptionPane.showConfirmDialog(this,
+      "Reactivate \"" + item.name + "\" with a starting quantity of " + quantity + " " + item.unit
+        + "?",
+      "Reactivate Inventory Item", JOptionPane.YES_NO_OPTION);
 
     if (confirm != JOptionPane.YES_OPTION) {
       return;
     }
 
     try {
-
-      dao.reactivateInventoryItem(
-        item.id,
-        quantity
-      );
+      dao.reactivateInventoryItem(item.id, quantity);
 
       if (onReactivated != null) {
         onReactivated.run();
       }
 
-      JOptionPane.showMessageDialog(
-        this,
-        "\"" + item.name + "\" was reactivated."
-      );
+      JOptionPane.showMessageDialog(this, "\"" + item.name + "\" was reactivated.");
 
       dispose();
 
     } catch (SQLException ex) {
-
-      error.setText(
-        "Reactivation failed: " + ex.getMessage()
-      );
+      error.setText("Reactivation failed: " + ex.getMessage());
     }
   }
 
@@ -359,17 +268,10 @@ public class ReactivateItem extends JDialog {
    * @return parsed value, or null if invalid
    */
   private static Double parseNonNegative(String text) {
-
     try {
+      double value = Double.parseDouble(text.trim());
 
-      double value =
-        Double.parseDouble(text.trim());
-
-      if (
-        value < 0 ||
-        Double.isNaN(value) ||
-        Double.isInfinite(value)
-      ) {
+      if (value < 0 || Double.isNaN(value) || Double.isInfinite(value)) {
         return null;
       }
 

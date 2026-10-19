@@ -1,3 +1,5 @@
+-- Query generated sales, inventory, and meal selections for validation.
+
 /* query 1 - 52 weeks of sales history */
 
 SELECT
@@ -10,7 +12,7 @@ ORDER BY EXTRACT(WEEK FROM OrderDate);
 /* query 2 - Orders fall within operating hours */
 
 SELECT
-    CASE 
+    CASE
         WHEN EXTRACT(HOUR FROM OrderTime) = 12 THEN '12pm'
         WHEN EXTRACT(HOUR FROM OrderTime) > 12 THEN (EXTRACT(HOUR FROM OrderTime) - 12) || 'pm'
         ELSE EXTRACT(HOUR FROM OrderTime) || 'am'
@@ -42,7 +44,7 @@ ORDER BY MenuItemName;
 
 /* query 5 - Best of the Worst */
 
-SELECT 
+SELECT
     OrderDate || ' was the slowest day, and the best selling item was ' ||
     MenuItemName || ' with ' || SUM(Qty) || ' sold' AS best_of_the_worst
 FROM Orders

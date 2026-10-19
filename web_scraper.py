@@ -1,17 +1,22 @@
+"""Scrape Panda Express nutrition rows into results.csv using Selenium."""
+
+import csv
+
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import csv
 
-def scrape_website(url):
-    chrome_options = Options()
-    # chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
 
-    driver = webdriver.Chrome(options=chrome_options)
+def scrapeWebsite(url):
+    """Load nutrition rows from the URL and save their cells as CSV data."""
+    chromeOptions = Options()
+    # chromeOptions.add_argument("--headless")
+    chromeOptions.add_argument("--no-sandbox")
+    chromeOptions.add_argument("--disable-dev-shm-usage")
+
+    driver = webdriver.Chrome(options=chromeOptions)
     driver.get(url)
 
     try:
@@ -31,7 +36,7 @@ def scrape_website(url):
 
     print("Rows found:", len(rows))
 
-    scraped_data = []
+    scrapedData = []
 
     for row in rows:
         cells = row.find_elements(By.TAG_NAME, "td")
@@ -43,7 +48,7 @@ def scrape_website(url):
 
         print(values)
 
-        scraped_data.append(values)
+        scrapedData.append(values)
 
     driver.quit()
 
@@ -66,9 +71,9 @@ def scrape_website(url):
             "Protein"
         ])
 
-        writer.writerows(scraped_data)
+        writer.writerows(scrapedData)
 
 
 if __name__ == "__main__":
-    target_url = "https://www.pandaexpress.com/nutritioninformation"
-    scrape_website(target_url)
+    targetUrl = "https://www.pandaexpress.com/nutritioninformation"
+    scrapeWebsite(targetUrl)

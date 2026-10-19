@@ -1,3 +1,5 @@
+/** Provides the dialog for adding an inventory ingredient. */
+
 import java.sql.SQLException;
 
 import javax.swing.*;
@@ -14,7 +16,6 @@ import java.awt.event.ActionEvent;
  * ReactivateItem instead of being inserted again.
  */
 public class AddItem extends JDialog {
-
   /**
    * Creates the modal "Add Inventory Item" dialog.
    *
@@ -37,54 +38,29 @@ public class AddItem extends JDialog {
     root.setBackground(PandaTheme.WHITE);
     root.setBorder(new EmptyBorder(18, 20, 18, 20));
 
-    root.add(
-      PandaTheme.label(
-        "Add Inventory Item",
-        PandaTheme.HEADING,
-        PandaTheme.BLACK
-      ),
-      BorderLayout.NORTH
-    );
+    root.add(PandaTheme.label("Add Inventory Item", PandaTheme.HEADING, PandaTheme.BLACK),
+      BorderLayout.NORTH);
 
     JPanel form = new JPanel(new GridBagLayout());
     form.setOpaque(false);
 
     String[] labels = {
-      "Item name",
-      "Unit",
-      "Minimum threshold",
-      "Starting quantity",
-      "Shelf life (days)"
-    };
+      "Item name", "Unit", "Minimum threshold", "Starting quantity", "Shelf life (days)"};
 
-    JComponent[] fields = {
-      name,
-      unit,
-      threshold,
-      quantity,
-      shelfLife
-    };
+    JComponent[] fields = {name, unit, threshold, quantity, shelfLife};
 
     GridBagConstraints constraints = new GridBagConstraints();
     constraints.insets = new Insets(5, 0, 5, 12);
     constraints.anchor = GridBagConstraints.WEST;
 
     for (int i = 0; i < labels.length; i++) {
-
       constraints.gridy = i;
 
       constraints.gridx = 0;
       constraints.weightx = 0;
       constraints.fill = GridBagConstraints.NONE;
 
-      form.add(
-        PandaTheme.label(
-          labels[i],
-          PandaTheme.BOLD,
-          PandaTheme.BLACK
-        ),
-        constraints
-      );
+      form.add(PandaTheme.label(labels[i], PandaTheme.BOLD, PandaTheme.BLACK), constraints);
 
       constraints.gridx = 1;
       constraints.weightx = 1;
@@ -95,17 +71,13 @@ public class AddItem extends JDialog {
 
     root.add(form, BorderLayout.CENTER);
 
-    final JLabel error =
-      PandaTheme.label(" ", PandaTheme.SMALL, PandaTheme.RED);
+    final JLabel error = PandaTheme.label(" ", PandaTheme.SMALL, PandaTheme.RED);
 
-    JButton cancel =
-      PandaTheme.secondaryButton("Cancel");
+    JButton cancel = PandaTheme.secondaryButton("Cancel");
 
-    JButton ok =
-      PandaTheme.primaryButton("Add Item");
+    JButton ok = PandaTheme.primaryButton("Add Item");
 
-    JPanel buttons =
-      new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+    JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
 
     buttons.setOpaque(false);
     buttons.add(cancel);
@@ -120,25 +92,23 @@ public class AddItem extends JDialog {
     root.add(bottom, BorderLayout.SOUTH);
 
     cancel.addActionListener(new ActionListener() {
+      /** Handles this control's user action. */
       public void actionPerformed(ActionEvent e) {
         dispose();
       }
     });
 
     ok.addActionListener(new ActionListener() {
+      /** Handles this control's user action. */
       public void actionPerformed(ActionEvent e) {
-
         String itemName = name.getText().trim();
         String itemUnit = unit.getText().trim();
 
-        Double minThreshold =
-          parseNonNegative(threshold.getText());
+        Double minThreshold = parseNonNegative(threshold.getText());
 
-        Double startingQuantity =
-          parseNonNegative(quantity.getText());
+        Double startingQuantity = parseNonNegative(quantity.getText());
 
-        Integer shelfLifeDays =
-          parseNonNegativeInt(shelfLife.getText());
+        Integer shelfLifeDays = parseNonNegativeInt(shelfLife.getText());
 
         String err = null;
 
@@ -164,31 +134,19 @@ public class AddItem extends JDialog {
         }
 
         try {
-
-          dao.insertItem(
-            itemName,
-            itemUnit,
-            minThreshold,
-            startingQuantity,
-            shelfLifeDays
-          );
+          dao.insertItem(itemName, itemUnit, minThreshold, startingQuantity, shelfLifeDays);
 
           if (onAdded != null) {
             onAdded.run();
           }
 
           JOptionPane.showMessageDialog(
-            AddItem.this,
-            "\"" + itemName + "\" was added to inventory."
-          );
+            AddItem.this, "\"" + itemName + "\" was added to inventory.");
 
           dispose();
 
         } catch (SQLException ex) {
-
-          error.setText(
-            "Add failed: " + ex.getMessage()
-          );
+          error.setText("Add failed: " + ex.getMessage());
         }
       }
     });
@@ -210,11 +168,7 @@ public class AddItem extends JDialog {
     try {
       double d = Double.parseDouble(text.trim());
 
-      if (
-        d < 0 ||
-        Double.isNaN(d) ||
-        Double.isInfinite(d)
-      ) {
+      if (d < 0 || Double.isNaN(d) || Double.isInfinite(d)) {
         return null;
       }
 
