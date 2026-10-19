@@ -3,18 +3,25 @@ import javax.swing.*;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
 
-/*
-CSCE 331
-9-25-2019 Original
-2/7/2020 Update for AWS
+/**
+ * CSCE 331
+ * 9-25-2019 Original
+ * 2/7/2020 Update for AWS
+ * <p>
+ * Early JDBC Swing demo: opens a connection to the team database and
+ * displays the MenuItem table in a simple window.
  */
-
 public class jdbcGUI {
 
   // Database connection object
   static Connection conn = null;
 
 
+  /**
+   * Opens the database connection using the given credentials.
+   *
+   * @param credentials database username and password
+   */
   public static void openConnection(dbSetup credentials) {
     try {
       conn = DriverManager.getConnection(
@@ -29,6 +36,9 @@ public class jdbcGUI {
   }
 
 
+  /**
+   * Closes the database connection.
+   */
   public static void closeConnection() {
     try {
       conn.close();
@@ -39,6 +49,11 @@ public class jdbcGUI {
   }
 
 
+  /**
+   * Runs the demo: connects, queries the MenuItem table, and shows the result in a window.
+   *
+   * @param args command line arguments (unused)
+   */
   public static void main(String args[]) {
     // dbSetup hides the username and password
     dbSetup credentials = new dbSetup();

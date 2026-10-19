@@ -3,7 +3,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/*
+/**
  * Database calls for the manager GUI (model side of MVC).
  *
  *   fetchAll()          - every Inventory row, ordered by name
@@ -25,38 +25,64 @@ import java.util.Map;
  */
 public class InventoryDAO {
 
+  /** Name of the threshold column in the live database. */
   static final String THRESHOLD_COL = "Minimum_Threshold";
 
-  // One Inventory row
+  /**
+   * One Inventory row.
+   */
   public static class Item {
+    /** InventoryID primary key. */
     public int id;
+    /** ItemName. */
     public String name;
+    /** Unit of measure. */
     public String unit;
+    /** Minimum threshold before the item counts as low. */
     public double threshold;
+    /** Quantity on hand. */
     public double quantity;
+    /** Shelf life in days. */
     public int shelfLifeDays;
 
-    // "low" means at or below the minimum threshold
+    /**
+     * "low" means at or below the minimum threshold.
+     * @return true if quantity is at or below the threshold
+     */
     public boolean isLow() {
       return quantity <= threshold;
     }
   }
 
-  // One MenuItem row
+  /**
+   * One MenuItem row.
+   */
   public static class MenuItem {
+    /** MenuItemID primary key. */
     public int id;
+    /** MenuItemName. */
     public String name;
+    /** Category (may be unset for legacy rows). */
     public String category;
+    /** Price in dollars. */
     public double price;
   }
 
   private final Connection conn;
 
+  /**
+   * Creates a DAO over the manager's existing database connection.
+   * @param conn open JDBC connection; ownership stays with the caller
+   */
   public InventoryDAO(Connection conn) {
     this.conn = conn;
   }
 
-  // Fetches all active inventory items from the database, ordered by name
+  /**
+   * Fetches all active inventory items from the database, ordered by name.
+   * @return list of active inventory items
+   * @throws SQLException if the query fails
+   */
   public List<Item> fetchAll() throws SQLException {
     List<Item> items = new ArrayList<Item>();
     Statement st = conn.createStatement();
@@ -80,7 +106,11 @@ public class InventoryDAO {
     return items;
   }
 
-  // Updates the quantities of inventory items in a single transaction
+  /**
+   * Updates the quantities of inventory items in a single transaction.
+   * @param changes map of InventoryID to new Quantity
+   * @throws SQLException if the batch update fails (transaction is rolled back)
+   */
   public void updateQuantities(Map<Integer, Double> changes) throws SQLException {
     if (changes.isEmpty())
       return;
@@ -110,7 +140,16 @@ public class InventoryDAO {
     }
   }
 
-  // Inserts a new inventory item into the database, ensuring no duplicate active items exist
+  /**
+   * Inserts a new inventory item into the database, ensuring no duplicate active items exist.
+   * @param name item name (case-insensitive unique, even against inactive rows)
+   * @param unit unit of measure
+   * @param threshold minimum threshold
+   * @param quantity starting quantity
+   * @param shelfLifeDays shelf life in days
+   * @return the new InventoryID (MAX + 1)
+   * @throws SQLException if a row with the same name exists or the insert fails
+   */
   public int insertItem(
       String name,
       String unit,
@@ -198,7 +237,11 @@ public class InventoryDAO {
     }
   }
 
-  // Fetches all inactive inventory items from the database, ordered by name
+  /**
+   * Fetches all inactive inventory items from the database, ordered by name.
+   * @return list of inactive inventory items
+   * @throws SQLException if the query fails
+   */
   public List<Item> fetchInactiveItems() throws SQLException {
     List<Item> items = new ArrayList<Item>();
 
@@ -229,7 +272,12 @@ public class InventoryDAO {
     return items;
   }
 
-  // Reactivates an inactive inventory item, setting its starting quantity and marking it as active
+  /**
+   * Reactivates an inactive inventory item, setting its starting quantity and marking it as active.
+   * @param inventoryId InventoryID of the inactive item
+   * @param startingQuantity quantity to restock with
+   * @throws SQLException if the item is not inactive or the update fails
+   */
   public void reactivateInventoryItem(
       int inventoryId,
       double startingQuantity) throws SQLException {
@@ -253,7 +301,15 @@ public class InventoryDAO {
     }
   }
 
-  // Creates a menu item and its recipe atomically; reactivation preserves its recipe
+  /**
+   * Creates a menu item and its recipe atomically; reactivation preserves its recipe.
+   * @param name menu item name (case-insensitive unique among active rows)
+   * @param category menu category
+   * @param price price in dollars
+   * @param ingredients map of InventoryID to QuantityRequired for the recipe
+   * @return the new (or reactivated) MenuItemID
+   * @throws SQLException if a duplicate exists, an ingredient is invalid, or the insert fails
+   */
   public int insertMenuItem(String name, String category, double price,
       Map<Integer, Double> ingredients) throws SQLException {
     if (!conn.getAutoCommit())
@@ -342,12 +398,23 @@ public class InventoryDAO {
     }
   }
 
-  // Inserts a new menu item without any ingredients
+  /**
+   * Inserts a new menu item without any ingredients.
+   * @param name menu item name
+   * @param price price in dollars
+   * @param category menu category
+   * @return the new MenuItemID
+   * @throws SQLException if the insert fails
+   */
   public int insertMenuItem(String name, double price, String category) throws SQLException {
     return insertMenuItem(name, category, price, java.util.Collections.<Integer, Double>emptyMap());
   }
 
-  // Fetches all active menu items from the database, ordered by ID
+  /**
+   * Fetches all active menu items from the database, ordered by ID.
+   * @return list of active menu items
+   * @throws SQLException if the query fails
+   */
   public List<MenuItem> fetchMenuItems() throws SQLException {
     List<MenuItem> items = new ArrayList<MenuItem>();
     Statement st = conn.createStatement();
@@ -365,7 +432,11 @@ public class InventoryDAO {
     return items;
   }
 
-  // Updates the prices of multiple menu items in a single transaction
+  /**
+   * Updates the prices of multiple menu items in a single transaction.
+   * @param changes map of MenuItemID to new Price
+   * @throws SQLException if the batch update fails (transaction is rolled back)
+   */
   public void updatePrices(Map<Integer, Double> changes) throws SQLException {
     if (changes.isEmpty()) 
       return;
@@ -395,7 +466,11 @@ public class InventoryDAO {
     }
   }
 
-  // Discontinues a menu item by setting its Active flag to FALSE
+  /**
+   * Discontinues a menu item by setting its Active flag to FALSE.
+   * @param menuItemId MenuItemID to discontinue
+   * @throws SQLException if no row matches or the update fails
+   */
   public void discontinueMenuItem(int menuItemId) throws SQLException {
     PreparedStatement ps = conn.prepareStatement(
         "UPDATE MenuItem SET Active = FALSE WHERE MenuItemID = ?");
@@ -411,7 +486,11 @@ public class InventoryDAO {
     }
   }
 
-  // Discontinues an inventory item by setting its Active flag to FALSE
+  /**
+   * Discontinues an inventory item by setting its Active flag to FALSE.
+   * @param inventoryId InventoryID to discontinue
+   * @throws SQLException if no row matches or the update fails
+   */
   public void discontinueInventoryItem(int inventoryId) throws SQLException {
     PreparedStatement ps = conn.prepareStatement(
         "UPDATE Inventory SET Active = FALSE WHERE InventoryID = ?");

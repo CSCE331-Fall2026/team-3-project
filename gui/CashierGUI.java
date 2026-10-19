@@ -13,7 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/*
+/**
  * Cashier GUI for team 3 project (Panda Express style POS).
  *
  * Layout follows the cashier GUI sketch:
@@ -59,6 +59,11 @@ public class CashierGUI {
 
   int nextLineId = 0;
 
+  /**
+   * Entry point: opens the database connection and launches the cashier window.
+   *
+   * @param args unused
+   */
   public static void main(String args[]) {
     openConnection(new dbSetup());
     PandaTheme.useSystemLook();
@@ -67,7 +72,11 @@ public class CashierGUI {
     });
   }
 
-  // Opens the shared database connection, or exits if it fails
+  /**
+   * Opens the shared database connection, or exits if it fails.
+   *
+   * @param credentials database login credentials
+   */
   static void openConnection(dbSetup credentials) {
     try {
       conn = DriverManager.getConnection(
@@ -80,12 +89,12 @@ public class CashierGUI {
     }
   }
 
-  // Closes the shared database connection, ignoring any exceptions
+  /** Closes the shared database connection, ignoring any exceptions. */
   static void closeConnection() {
     try { conn.close(); } catch (Exception e) { /* ignore */ }
   }
 
-  // Builds the main GUI layout for the cashier interface
+  /** Builds the main GUI layout for the cashier interface. */
   void build() {
     frame = new JFrame("Panda Express - Cashier");
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -109,6 +118,11 @@ public class CashierGUI {
   }
 
   // ---- Top nav bar: MENU | INV. | REP. ----
+  /**
+   * Builds the top nav bar (MENU | INV. | REP.) with a Switch Mode button.
+   *
+   * @return the nav bar panel
+   */
   JPanel buildNavBar() {
     JPanel nav = new JPanel(new BorderLayout());
     nav.setBackground(PandaTheme.GREY);
@@ -150,7 +164,7 @@ public class CashierGUI {
     return nav;
   }
 
-  // Ask for the manager PIN, then open the manager side. Wrong PIN stays here.
+  /** Asks for the manager PIN, then opens the manager side. Wrong PIN stays here. */
   void switchToManager() {
     if (!orderLines.isEmpty() && JOptionPane.showConfirmDialog(frame,
         "The current order will be discarded. Switch to manager mode?", "Switch Mode",
@@ -173,6 +187,11 @@ public class CashierGUI {
   }
 
   // ---- Left: category row + scrollable grid of item buttons ----
+  /**
+   * Builds the category row plus scrollable grid of item buttons.
+   *
+   * @return the menu area panel
+   */
   JPanel buildMenuArea() {
     JPanel area = new JPanel(new BorderLayout(0, 12));
     area.setOpaque(false);
@@ -200,7 +219,11 @@ public class CashierGUI {
     return area;
   }
 
-  // Displays the menu items for the specified category
+  /**
+   * Displays the active, in-stock menu items for the specified category.
+   *
+   * @param category one of {@link #CATEGORIES}
+   */
   void showCategory(String category) {
     for (String c : catButtons.keySet()) {
       if (c.equals(category)) {
@@ -242,7 +265,11 @@ public class CashierGUI {
     else showItemGrid(items);
   }
 
-  // Flat grid: one button per menu item
+  /**
+   * Flat grid: one button per menu item.
+   *
+   * @param items rows of {MenuItemID, MenuItemName, Price}
+   */
   void showItemGrid(List<Object[]> items) {
     itemsPanel.removeAll();
     for (Object[] it : items) {
@@ -253,7 +280,11 @@ public class CashierGUI {
     itemsPanel.repaint();
   }
 
-  // Drinks: one button per drink name; sizes are picked on the next screen.
+  /**
+   * Drinks: one button per drink name; sizes are picked on the next screen.
+   *
+   * @param items rows of {MenuItemID, MenuItemName, Price}
+   */
   void showDrinkGrid(List<Object[]> items) {
     LinkedHashMap<String, List<Object[]>> drinks =
       new LinkedHashMap<String, List<Object[]>>();
@@ -282,7 +313,12 @@ public class CashierGUI {
     itemsPanel.repaint();
   }
 
-  // Size picker for one drink: back button, then one button per size
+  /**
+   * Size picker for one drink: back button, then one button per size.
+   *
+   * @param base  drink name without the size suffix
+   * @param sizes rows of {MenuItemID, MenuItemName, Price} for each size
+   */
   void showSizeGrid(String base, List<Object[]> sizes) {
     List<Object[]> sorted = new ArrayList<Object[]>(sizes);
     Collections.sort(sorted, new Comparator<Object[]>() {
@@ -304,7 +340,12 @@ public class CashierGUI {
     itemsPanel.repaint();
   }
 
-  // Drink name without the size suffix ("COCA-COLA - SMALL" -> "COCA-COLA")
+  /**
+   * Drink name without the size suffix ("COCA-COLA - SMALL" -&gt; "COCA-COLA").
+   *
+   * @param name full menu item name
+   * @return the name without its size suffix, or unchanged if none
+   */
   static String baseName(String name) {
     int i = name.lastIndexOf(" - ");
     if (i < 0) return name;
@@ -315,14 +356,24 @@ public class CashierGUI {
     return name;
   }
 
-  // Title-cased size for the button label ("... - MEDDIUM" -> "Medium")
+  /**
+   * Title-cased size for the button label ("... - MEDDIUM" -&gt; "Medium").
+   *
+   * @param name full menu item name ending in " - SIZE"
+   * @return title-cased size text
+   */
   static String sizeLabel(String name) {
     String s = name.substring(name.lastIndexOf(" - ") + 3);
     if (s.equals("MEDDIUM")) s = "MEDIUM";
     return s.charAt(0) + s.substring(1).toLowerCase();
   }
 
-  // Returns the relative order of a size for sorting purposes
+  /**
+   * Returns the relative order of a size for sorting purposes.
+   *
+   * @param name full menu item name ending in " - SIZE"
+   * @return 0 (kids) through 3 (large), 4 for unknown sizes
+   */
   static int sizeOrder(String name) {
     String s = name.substring(name.lastIndexOf(" - ") + 3);
     if (s.equals("KIDS")) return 0;
@@ -332,7 +383,12 @@ public class CashierGUI {
     return 4;
   }
 
-  // Creates a grid button with the specified label
+  /**
+   * Creates a grid button with the specified label.
+   *
+   * @param label button text (may contain simple HTML)
+   * @return the styled button
+   */
   JButton gridButton(String label) {
     JButton b = PandaTheme.secondaryButton("<html><center>" + label + "</center></html>");
     b.setFont(PandaTheme.SMALL);
@@ -341,7 +397,15 @@ public class CashierGUI {
     return b;
   }
 
-  // Item button: shows label + price, adds id/name to the ticket on click
+  /**
+   * Item button: shows label + price, adds the item to the ticket on click.
+   *
+   * @param id    MenuItemID
+   * @param name  menu item name
+   * @param price unit price
+   * @param label text shown on the button
+   * @return the styled button
+   */
   JButton itemButton(final int id, final String name, final double price, String label) {
     JButton b = gridButton(label + "<br>$" + String.format("%.2f", price));
     b.addActionListener(new ActionListener() {
@@ -351,6 +415,11 @@ public class CashierGUI {
   }
 
   // ---- Right: order ticket ----
+  /**
+   * Builds the order ticket: line list, remove button, totals, and Checkout.
+   *
+   * @return the ticket panel
+   */
   JPanel buildTicket() {
     JPanel ticket = new JPanel(new BorderLayout(0, 12));
     ticket.setPreferredSize(new Dimension(280, 0));
@@ -412,8 +481,15 @@ public class CashierGUI {
     return ticket;
   }
 
-  // Adds an item to the order, updating the ticket display
-  // If the item is not available, a message dialog is shown
+  /**
+   * Adds an item to the order, updating the ticket display.
+   * Meals prompt for side/entree choices; if the item is not
+   * available, a message dialog is shown instead.
+   *
+   * @param id    MenuItemID
+   * @param name  menu item name
+   * @param price unit price
+   */
   void addItem(int id, String name, double price) {
     List<Integer> selections = new ArrayList<Integer>();
     String description = name;
@@ -473,6 +549,12 @@ public class CashierGUI {
     }
   }
 
+  /**
+   * MenuItemID of the line plus the IDs of its selected components.
+   *
+   * @param line a ticket line from {@link #orderLines}
+   * @return the line's own ID followed by its selected component IDs
+   */
   @SuppressWarnings("unchecked")
   List<Integer> components(Object[] line) {
     List<Integer> ids = new ArrayList<Integer>();
@@ -481,7 +563,11 @@ public class CashierGUI {
     return ids;
   }
 
-  // Check combined demand across the whole cart, including repeated entree choices.
+  /**
+   * Checks combined demand across the whole cart, including repeated entree choices.
+   *
+   * @throws SQLException if any item is inactive or inventory is insufficient
+   */
   void validateCart() throws SQLException {
     Map<Integer, Double> required = new LinkedHashMap<Integer, Double>();
     for (Object[] line : orderLines.values()) {
@@ -518,7 +604,11 @@ public class CashierGUI {
     }
   }
 
-  // Calculates the subtotal of all items in the current order
+  /**
+   * Calculates the subtotal of all items in the current order.
+   *
+   * @return sum of price * qty over all ticket lines
+   */
   double subtotal() {
     double sum = 0;
     for (Object[] line : orderLines.values())
@@ -526,7 +616,7 @@ public class CashierGUI {
     return sum;
   }
 
-  // Refreshes the ticket display, including subtotal, tax, and total
+  /** Refreshes the ticket display, including subtotal, tax, and total. */
   void refreshTicket() {
     ticketModel.clear();
     for (Object[] line : orderLines.values()) {
@@ -543,6 +633,11 @@ public class CashierGUI {
   }
 
   // ---- Checkout: write the order to the database in one transaction ----
+  /**
+   * Writes the order to the database in one transaction: Orders row,
+   * OrderItem rows, OrderItemSelection rows, and inventory decrements.
+   * Rolls back if validation fails or any inventory would go negative.
+   */
   void checkout() {
     if (orderLines.isEmpty()) {
       JOptionPane.showMessageDialog(frame, "The order is empty.");

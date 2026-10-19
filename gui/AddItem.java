@@ -7,7 +7,7 @@ import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
 
-/*
+/**
  * Form for adding a brand-new Inventory item.
  *
  * Discontinued inventory items should be restored using
@@ -15,6 +15,13 @@ import java.awt.event.ActionEvent;
  */
 public class AddItem extends JDialog {
 
+  /**
+   * Creates the modal "Add Inventory Item" dialog.
+   *
+   * @param owner   parent frame the dialog is centered on
+   * @param dao     data access object used to insert the item
+   * @param onAdded callback run after a successful insert (may be null)
+   */
   public AddItem(JFrame owner, final InventoryDAO dao, final Runnable onAdded) {
     super(owner, "Add Inventory Item", true);
 
@@ -193,7 +200,12 @@ public class AddItem extends JDialog {
     setLocationRelativeTo(owner);
   }
 
-  // Parses a non-negative double from a string
+  /**
+   * Parses a non-negative double from a string.
+   *
+   * @param text raw user input
+   * @return the parsed value, or null if invalid or negative
+   */
   static Double parseNonNegative(String text) {
     try {
       double d = Double.parseDouble(text.trim());
@@ -213,7 +225,12 @@ public class AddItem extends JDialog {
     }
   }
 
-  // Parses a non-negative integer from a string
+  /**
+   * Parses a non-negative integer from a string.
+   *
+   * @param text raw user input
+   * @return the parsed value, or null if invalid or negative
+   */
   static Integer parseNonNegativeInt(String text) {
     try {
       int value = Integer.parseInt(text.trim());

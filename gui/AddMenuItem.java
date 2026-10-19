@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.LinkedHashMap;
 import java.math.BigDecimal;
 
-/*
+/**
  * Form for adding a brand-new Menu item.
  *
  * Discontinued menu items should be restored using
@@ -29,6 +29,13 @@ public class AddMenuItem extends JDialog {
   private JTable recipeTable;
   private JButton addButton;
 
+  /**
+   * Creates the modal "Add Menu Item" dialog.
+   *
+   * @param parent    parent frame the dialog is centered on
+   * @param dao       data access object used to load ingredients and insert the item
+   * @param onSuccess callback run after a successful insert (may be null)
+   */
   public AddMenuItem(JFrame parent, InventoryDAO dao, Runnable onSuccess) {
     super(parent, "Add Menu Item", true);
 
@@ -41,7 +48,7 @@ public class AddMenuItem extends JDialog {
     setLocationRelativeTo(parent);
   }
 
-  // Builds the UI for the AddMenuItem dialog
+  /** Builds the UI for the AddMenuItem dialog. */
   private void build() {
     JPanel panel = new JPanel(new GridBagLayout());
     panel.setBorder(new EmptyBorder(16, 16, 16, 16));
@@ -128,7 +135,7 @@ public class AddMenuItem extends JDialog {
     add(panel);
   }
 
-  // Validates the form and adds the menu item if all inputs are correct
+  /** Validates the form and adds the menu item if all inputs are correct. */
   private void addItem() {
     String name = nameField.getText().trim();
     String priceText = priceField.getText().trim();

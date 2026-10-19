@@ -9,7 +9,7 @@ import java.awt.event.ActionEvent;
 import java.util.List;
 import java.util.Map;
 
-/*
+/**
  * Editable table page: title, optional note, table, unsaved counter, Refresh and Save.
  * Subclasses define load() and store() for the edited column.
  */
@@ -22,6 +22,17 @@ public abstract class TablePage<T> {
   final JPanel topButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
   final JLabel unsavedLabel = PandaTheme.label(" ", PandaTheme.SMALL, PandaTheme.MUTED);
 
+  /**
+   * Builds the table page UI around the given model.
+   *
+   * @param parent parent component for dialogs
+   * @param title page title
+   * @param note optional note shown under the title
+   * @param noun item noun used in the unsaved counter
+   * @param m table model
+   * @param prefix number prefix for the edited column (e.g. "$")
+   * @param widths preferred column widths
+   */
   TablePage(Component parent, String title, String note, String noun,
             TableEdit<T> m, String prefix, int[] widths) {
     this.parent = parent;
@@ -79,24 +90,43 @@ public abstract class TablePage<T> {
     panel.add(bottom, BorderLayout.SOUTH);
   }
 
-  // Loads the list of items from the database
+  /**
+   * Loads the list of items from the database.
+   *
+   * @return current items
+   * @throws SQLException if the query fails
+   */
   abstract List<T> load() throws SQLException;
 
-  // Stores the changes to the database
+  /**
+   * Stores the changes to the database.
+   *
+   * @param changes pending edits (id -&gt; new value)
+   * @throws SQLException if the update fails
+   */
   abstract void store(Map<Integer, Double> changes) throws SQLException;
 
-  // Override to ask before saving
+  /**
+   * Override to ask before saving.
+   *
+   * @param n number of pending changes
+   * @return true to proceed with the save
+   */
   boolean confirmSave(int n) { return true; }
 
-  // Stops any ongoing cell editing in the table
+  /** Stops any ongoing cell editing in the table. */
   void stopEditing() {
     if (table.isEditing()) table.getCellEditor().stopCellEditing();
   }
 
-  // Returns true if there are unsaved changes in the table
+  /**
+   * Checks if there are unsaved changes in the table.
+   *
+   * @return true if there are pending edits
+   */
   boolean hasUnsaved() { return !model.pending.isEmpty(); }
 
-  // Reloads the table from the database
+  /** Reloads the table from the database. */
   void reload() {
     try {
       model.setItems(load());
@@ -106,7 +136,7 @@ public abstract class TablePage<T> {
     }
   }
 
-  // Refreshes the table, optionally discarding unsaved changes
+  /** Refreshes the table, optionally discarding unsaved changes. */
   void refresh() {
     stopEditing();
     if (!hasUnsaved() || JOptionPane.showConfirmDialog(parent,
@@ -116,7 +146,7 @@ public abstract class TablePage<T> {
     }
   }
 
-  // Saves the changes to the database
+  /** Saves the changes to the database. */
   void save() {
     stopEditing();
     int n = model.pending.size();
@@ -134,7 +164,7 @@ public abstract class TablePage<T> {
     }
   }
 
-  // Updates the label showing the number of unsaved changes
+  /** Updates the label showing the number of unsaved changes. */
   void updateUnsavedLabel() {
     int n = model.pending.size();
     if (n == 0) {

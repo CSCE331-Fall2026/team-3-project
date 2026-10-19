@@ -1,19 +1,26 @@
-/*
- * Read-only database queries for today's orders and their item quantities.
- */
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Read-only database queries for today's orders and their item quantities.
+ */
 public class OrderHistoryDAO {
   private final Connection conn;
 
-  // Uses the manager's existing database connection
+  /**
+   * Uses the manager's existing database connection.
+   * @param conn open JDBC connection; ownership stays with the caller
+   */
   public OrderHistoryDAO(Connection conn) {
     this.conn = conn;
   }
 
-  // Loads today's orders, newest first, using the database's checkout date
+  /**
+   * Loads today's orders, newest first, using the database's checkout date.
+   * @return rows of {OrderID, time made, total}
+   * @throws SQLException if the query fails
+   */
   public List<Object[]> fetchToday() throws SQLException {
     List<Object[]> orders = new ArrayList<Object[]>();
     try (Statement st = conn.createStatement();
@@ -27,7 +34,12 @@ public class OrderHistoryDAO {
     return orders;
   }
 
-  // Loads item names and quantities, including discontinued menu items
+  /**
+   * Loads item names and quantities, including discontinued menu items.
+   * @param orderId OrderID to load items for
+   * @return rows of {item name, quantity, per-meal selections}
+   * @throws SQLException if the query fails
+   */
   public List<Object[]> fetchItems(int orderId) throws SQLException {
     List<Object[]> items = new ArrayList<Object[]>();
     try (PreparedStatement ps = conn.prepareStatement(

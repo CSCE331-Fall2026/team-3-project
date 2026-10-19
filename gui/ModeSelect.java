@@ -5,7 +5,7 @@ import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
 
-/*
+/**
  * Entry screen: choose Cashier or Manager mode.
  *
  * Opens one database connection and hands it to whichever GUI is picked.
@@ -19,6 +19,11 @@ public class ModeSelect {
   JFrame frame;
   final Connection db;
 
+  /**
+   * Entry point: opens the database connection and shows the mode picker.
+   *
+   * @param args unused
+   */
   public static void main(String args[]) {
     openConnection(new dbSetup());
     PandaTheme.useSystemLook();
@@ -27,7 +32,11 @@ public class ModeSelect {
     });
   }
 
-  // Opens a connection to the database using the provided credentials
+  /**
+   * Opens a connection to the database using the provided credentials.
+   *
+   * @param credentials database login credentials
+   */
   static void openConnection(dbSetup credentials) {
     try {
       conn = DriverManager.getConnection(
@@ -40,16 +49,21 @@ public class ModeSelect {
     }
   }
 
-  // Closes the database connection if it is open
+  /** Closes the database connection if it is open. */
   static void closeConnection() {
     try { conn.close(); } catch (Exception e) { /* ignore */ }
   }
 
+  /**
+   * Creates the mode picker backed by the given connection.
+   *
+   * @param c open database connection handed to whichever GUI is picked
+   */
   public ModeSelect(Connection c) {
     db = c;
   }
 
-  // Builds the main frame for selecting the mode (Cashier or Manager)
+  /** Builds the main frame for selecting the mode (Cashier or Manager). */
   void build() {
     frame = new JFrame("Panda Express - Select Mode");
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -101,7 +115,7 @@ public class ModeSelect {
     frame.setVisible(true);
   }
 
-  // Opens the Cashier GUI and closes the current frame
+  /** Opens the Cashier GUI and closes the current frame. */
   void openCashier() {
     frame.dispose();
     PandaTheme.useJavaLook();
@@ -109,7 +123,7 @@ public class ModeSelect {
     new CashierGUI().build();
   }
 
-  // Opens the Manager GUI and closes the current frame
+  /** Opens the Manager GUI and closes the current frame. */
   void openManager() {
     frame.dispose();
     new ManagerGUI(db).build(conn);

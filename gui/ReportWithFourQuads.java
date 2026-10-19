@@ -13,7 +13,7 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.table.DefaultTableModel;
 
-/*
+/**
  * Reports page split into four quadrants.
  * Each quadrant is an empty placeholder panel to be filled in later
  * (e.g. sales report, excess report, restock report, ...).
@@ -28,7 +28,11 @@ public class ReportWithFourQuads {
   private final Connection conn;
 
 
-  // Builds the reports page: heading on top, 2x2 grid of placeholder quadrants
+  /**
+   * Builds the reports page: heading on top, 2x2 grid of placeholder quadrants.
+   *
+   * @param conn database connection used by the report queries
+   */
   public ReportWithFourQuads(Connection conn) {
     this.conn = conn;
     JPanel heading = new JPanel();
@@ -55,7 +59,12 @@ public class ReportWithFourQuads {
     panel.add(grid, BorderLayout.CENTER);
   }
 
-  // Fills the quadrant for the sales report: quantity sold and revenue per menu item
+  /**
+   * Fills the quadrant for the sales report: quantity sold and revenue per menu item.
+   *
+   * @param title quadrant title
+   * @return the quadrant panel
+   */
   private JPanel makeSalesReport(String title) {
     JPanel q = new JPanel(new BorderLayout(0, 8));
     q.setBackground(PandaTheme.WHITE);
@@ -150,7 +159,12 @@ public class ReportWithFourQuads {
     return q;
   }
 
- // Fills the quadrant for the usage report
+ /**
+  * Fills the quadrant for the usage report.
+  *
+  * @param title quadrant title
+  * @return the quadrant panel
+  */
 private JPanel makeUsageReport(String title) {
     JPanel q = new JPanel(new BorderLayout(0, 8));
     q.setBackground(PandaTheme.WHITE);
@@ -247,7 +261,12 @@ private JPanel makeUsageReport(String title) {
 
     return q;
 }
-  // Fills the quadrant for the restock report
+  /**
+   * Fills the quadrant for the restock report.
+   *
+   * @param title quadrant title
+   * @return the quadrant panel
+   */
   private JPanel makeRestockReport(String title) {
     JPanel q = new JPanel(new BorderLayout(0, 8));
     q.setBackground(PandaTheme.WHITE);
@@ -313,8 +332,13 @@ private JPanel makeUsageReport(String title) {
     return q;
   }
 
-  // Generates an X-Report showing hourly sales for the current day.
-  // Read-only: does not modify orders, inventory, or register totals.
+  /**
+   * Generates an X-Report showing hourly sales for the current day.
+   * Read-only: does not modify orders, inventory, or register totals.
+   *
+   * @param title quadrant title
+   * @return the quadrant panel
+   */
   private JPanel makeXReport(String title) {
       JPanel q = new JPanel(new BorderLayout(0, 8));
       q.setBackground(PandaTheme.WHITE);

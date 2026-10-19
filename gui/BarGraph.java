@@ -2,6 +2,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.geom.Rectangle2D;
 
+/** Simple bar chart panel for manager reports, drawn with Java2D. */
 public class BarGraph extends JPanel {
 
     private String title;
@@ -13,6 +14,14 @@ public class BarGraph extends JPanel {
     private static final Color BAR_COLOR = new Color(66, 133, 244);
     private static final Color GRID_COLOR = new Color(220, 220, 220);
 
+    /**
+     * Creates a bar graph with the given data.
+     *
+     * @param title  chart title drawn at the top
+     * @param labels category label for each bar
+     * @param values bar heights, parallel to labels
+     * @throws IllegalArgumentException if labels and values differ in length
+     */
     public BarGraph(String title, String[] labels, double[] values) {
         if (labels.length != values.length) {
             throw new IllegalArgumentException("labels and values must be the same length");
@@ -24,6 +33,13 @@ public class BarGraph extends JPanel {
         setBackground(Color.WHITE);
     }
 
+    /**
+     * Replaces the chart data and repaints, keeping the current title.
+     *
+     * @param labels category label for each bar
+     * @param values bar heights, parallel to labels
+     * @throws IllegalArgumentException if labels and values differ in length
+     */
     public void setData(String[] labels, double[] values) {
         if (labels.length != values.length) {
             throw new IllegalArgumentException("labels and values must be the same length");
@@ -33,6 +49,7 @@ public class BarGraph extends JPanel {
         repaint();
     }
 
+    /** Draws the title, gridlines, bars, and axes. */
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -111,6 +128,7 @@ public class BarGraph extends JPanel {
         g2.drawLine(plotLeft, plotBottom, plotRight, plotBottom);
     }
 
+    /** Returns the largest value in the array, or 0 if all are negative. */
     private static double max(double[] arr) {
         double m = 0;
         for (double v : arr) m = Math.max(m, v);
@@ -130,6 +148,7 @@ public class BarGraph extends JPanel {
         return niceFraction * Math.pow(10, exponent);
     }
 
+    /** Formats whole numbers without decimals, others with one decimal place. */
     private static String formatNumber(double v) {
         return (v == Math.rint(v)) ? String.valueOf((long) v) : String.format("%.1f", v);
     }

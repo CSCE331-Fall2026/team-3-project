@@ -8,9 +8,9 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
-/*
- * Colors, fonts, buttons and table styling shared by all GUI windows
- * RED and GREY match CashierGUI
+/**
+ * Colors, fonts, buttons and table styling shared by all GUI windows.
+ * RED and GREY match CashierGUI.
  */
 public class PandaTheme {
 
@@ -38,21 +38,29 @@ public class PandaTheme {
   static final Font BOLD    = new Font(FONT, Font.BOLD, 14);
   static final Font SMALL   = new Font(FONT, Font.PLAIN, 12);
 
-  // Windows/Mac native look for everything not styled by hand (dialogs, scrollbars)
+  /** Windows/Mac native look for everything not styled by hand (dialogs, scrollbars). */
   static void useSystemLook() {
     try {
       UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
     } catch (Exception e) { /* keep the current look */ }
   }
 
-  // Java's default look; CashierGUI was designed against this one
+  /** Java's default look; CashierGUI was designed against this one. */
   static void useJavaLook() {
     try {
       UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
     } catch (Exception e) { /* keep the current look */ }
   }
 
-  // Flat colored button that darkens on hover
+  /**
+   * Flat colored button that darkens on hover.
+   *
+   * @param text  button text
+   * @param bg    background color
+   * @param fg    text color
+   * @param hover background color while hovered
+   * @return the styled button
+   */
   static JButton button(String text, Color bg, Color fg, Color hover) {
     final JButton b = new JButton(text) {
       protected void paintComponent(Graphics g) {
@@ -82,17 +90,34 @@ public class PandaTheme {
     return b;
   }
 
-  // Primary button with red background and white text
+  /**
+   * Primary button with red background and white text.
+   *
+   * @param text button text
+   * @return the styled button
+   */
   static JButton primaryButton(String text) {
     return button(text, RED, WHITE, RED_DARK);
   }
   
-  // Secondary button with grey background and black text
+  /**
+   * Secondary button with grey background and black text.
+   *
+   * @param text button text
+   * @return the styled button
+   */
   static JButton secondaryButton(String text) {
     return button(text, GREY, BLACK, GREY_DARK);
   }
 
-  // Sets the base colors for a button (background, foreground, hover)
+  /**
+   * Sets the base colors for a button (background, foreground, hover).
+   *
+   * @param b     button created by {@link #button}
+   * @param bg    background color
+   * @param fg    text color
+   * @param hover background color while hovered
+   */
   static void setBase(JButton b, Color bg, Color fg, Color hover) {
     b.putClientProperty("baseColor", bg);
     b.putClientProperty("hoverColor", hover);
@@ -100,7 +125,14 @@ public class PandaTheme {
     b.setForeground(fg);
   }
 
-  // Creates a label with the specified text, font, and color
+  /**
+   * Creates a label with the specified text, font, and color.
+   *
+   * @param text  label text
+   * @param font  label font
+   * @param color text color
+   * @return the styled label
+   */
   static JLabel label(String text, Font font, Color color) {
     JLabel l = new JLabel(text);
     l.setFont(font);
@@ -108,7 +140,12 @@ public class PandaTheme {
     return l;
   }
 
-  // Creates a text field with the specified number of columns
+  /**
+   * Creates a text field with the specified number of columns.
+   *
+   * @param columns width in columns
+   * @return the styled text field
+   */
   static JTextField textField(int columns) {
     JTextField f = new JTextField(columns);
     f.setFont(BODY);
@@ -118,12 +155,23 @@ public class PandaTheme {
     return f;
   }
 
-  // Creates a styled JTable with the specified table model
+  /**
+   * Creates a styled JTable with the specified table model.
+   *
+   * @param m editable table model
+   * @return the styled table
+   */
   static JTable styledTable(final TableEdit<?> m) {
     return styledTable((javax.swing.table.AbstractTableModel) m);
   }
 
-  // Creates a styled table for read-only models as well as editable models
+  /**
+   * Creates a styled table for read-only models as well as editable models.
+   * Pending rows of a TableEdit model are highlighted; other rows stripe.
+   *
+   * @param m table model
+   * @return the styled table
+   */
   static JTable styledTable(final javax.swing.table.AbstractTableModel m) {
     JTable t = new JTable(m) {
       public Component prepareRenderer(TableCellRenderer r, int row, int col) {
@@ -178,7 +226,12 @@ public class PandaTheme {
     return t;
   }
 
-  // Right-aligned number with two decimals
+  /**
+   * Right-aligned number with two decimals.
+   *
+   * @param prefix text prepended to the number (e.g. "$")
+   * @return the cell renderer
+   */
   static DefaultTableCellRenderer numberRenderer(final String prefix) {
     DefaultTableCellRenderer r = new DefaultTableCellRenderer() {
       public Component getTableCellRendererComponent(JTable tb, Object v,
@@ -193,7 +246,11 @@ public class PandaTheme {
     return r;
   }
 
-  // Shows "unsaved" in a row whose value is "*"
+  /**
+   * Shows "unsaved" in a row whose value is "*".
+   *
+   * @return the cell renderer
+   */
   static DefaultTableCellRenderer unsavedRenderer() {
     DefaultTableCellRenderer r = new DefaultTableCellRenderer() {
       public Component getTableCellRendererComponent(JTable tb, Object v,
@@ -209,7 +266,11 @@ public class PandaTheme {
     return r;
   }
 
-  // Red "LOW" / green "OK" with a dot
+  /**
+   * Red "LOW" / green "OK" with a dot.
+   *
+   * @return the cell renderer
+   */
   static DefaultTableCellRenderer statusRenderer() {
     return new DefaultTableCellRenderer() {
       public Component getTableCellRendererComponent(JTable tb, Object v,
@@ -225,7 +286,12 @@ public class PandaTheme {
     };
   }
 
-  // Creates a JScrollPane with the specified JTable and styled borders
+  /**
+   * Creates a JScrollPane with the specified JTable and styled borders.
+   *
+   * @param t the table to wrap
+   * @return the styled scroll pane
+   */
   static JScrollPane scroll(JTable t) {
     JScrollPane sp = new JScrollPane(t);
     sp.setBorder(new LineBorder(GRID, 1));

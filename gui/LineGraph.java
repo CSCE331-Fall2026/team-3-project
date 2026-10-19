@@ -4,6 +4,7 @@ import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 
 
+/** Simple line chart panel for manager reports, drawn with Java2D. */
 public class LineGraph extends JPanel {
 
     private String title;
@@ -16,16 +17,39 @@ public class LineGraph extends JPanel {
     private static final Color LINE_COLOR = new Color(66, 133, 244);
     private static final Color GRID_COLOR = new Color(220, 220, 220);
 
+    /**
+     * Creates a line graph with the given data.
+     *
+     * @param title  chart title drawn at the top
+     * @param labels x-axis label for each point
+     * @param values point heights, parallel to labels
+     * @throws IllegalArgumentException if labels and values differ in length
+     */
     public LineGraph(String title, String[] labels, double[] values) {
         setData(title, labels, values);
         setPreferredSize(new Dimension(800, 500));
         setBackground(Color.WHITE);
     }
 
+    /**
+     * Replaces the chart data and repaints, keeping the current title.
+     *
+     * @param labels x-axis label for each point
+     * @param values point heights, parallel to labels
+     * @throws IllegalArgumentException if labels and values differ in length
+     */
     public void setData(String[] labels, double[] values) {
         setData(this.title, labels, values);
     }
 
+    /**
+     * Replaces the title and chart data, then repaints.
+     *
+     * @param title  chart title drawn at the top
+     * @param labels x-axis label for each point
+     * @param values point heights, parallel to labels
+     * @throws IllegalArgumentException if labels and values differ in length
+     */
     public void setData(String title, String[] labels, double[] values) {
         if (labels.length != values.length) {
             throw new IllegalArgumentException("labels and values must be the same length");
@@ -36,6 +60,7 @@ public class LineGraph extends JPanel {
         repaint();
     }
 
+    /** Draws the title, gridlines, line with points, and axes. */
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -128,16 +153,19 @@ public class LineGraph extends JPanel {
         g2.drawLine(plotLeft, zeroY, plotRight, zeroY);
     }
 
+    /** Maps a data value to a y pixel within the plot area. */
     private static int toY(double v, double yMin, double range, int plotBottom, int plotHeight) {
         return plotBottom - (int) Math.round(plotHeight * ((v - yMin) / range));
     }
 
+    /** Returns the largest value in the array. */
     private static double max(double[] arr) {
         double m = Double.NEGATIVE_INFINITY;
         for (double v : arr) m = Math.max(m, v);
         return m;
     }
 
+    /** Returns the smallest value in the array. */
     private static double min(double[] arr) {
         double m = Double.POSITIVE_INFINITY;
         for (double v : arr) m = Math.min(m, v);
@@ -157,6 +185,7 @@ public class LineGraph extends JPanel {
         return niceFraction * Math.pow(10, exponent);
     }
 
+    /** Formats whole numbers without decimals, others with one decimal place. */
     private static String formatNumber(double v) {
         return (v == Math.rint(v)) ? String.valueOf((long) v) : String.format("%.1f", v);
     }

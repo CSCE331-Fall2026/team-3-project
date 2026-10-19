@@ -8,7 +8,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
-/*
+/**
  * Allows a manager to restore a discontinued inventory item.
  *
  * Existing unit, minimum threshold, and shelf life values are preserved.
@@ -28,6 +28,13 @@ public class ReactivateItem extends JDialog {
   private JTextField quantityField;
   private JLabel error;
 
+  /**
+   * Creates the reactivate dialog and loads the discontinued items.
+   *
+   * @param owner owning frame
+   * @param dao inventory data access object
+   * @param onReactivated callback run after a successful reactivation
+   */
   public ReactivateItem(
       JFrame owner,
       final InventoryDAO dao,
@@ -73,7 +80,7 @@ public class ReactivateItem extends JDialog {
     setLocationRelativeTo(owner);
   }
 
-  // Builds the GUI for the dialog
+  /** Builds the GUI for the dialog. */
   private void build() {
 
     JPanel root = new JPanel(new BorderLayout(0, 12));
@@ -220,7 +227,15 @@ public class ReactivateItem extends JDialog {
     add(root);
   }
 
-  // Adds a row to the form panel with a label and a field
+  /**
+   * Adds a row to the form panel with a label and a field.
+   *
+   * @param panel form panel
+   * @param c shared grid bag constraints
+   * @param row row index
+   * @param label label text
+   * @param field field component
+   */
   private void addRow(
       JPanel panel,
       GridBagConstraints c,
@@ -250,7 +265,7 @@ public class ReactivateItem extends JDialog {
     panel.add(field, c);
   }
 
-  // Updates the details of the selected inventory item in the form fields
+  /** Updates the details of the selected inventory item in the form fields. */
   private void updateItemDetails() {
 
     int index = itemBox.getSelectedIndex();
@@ -275,7 +290,7 @@ public class ReactivateItem extends JDialog {
     quantityField.setText("");
   }
 
-  // Reactivates the selected inventory item after confirming the starting quantity
+  /** Reactivates the selected inventory item after confirming the starting quantity. */
   private void reactivateSelectedItem() {
 
     int index = itemBox.getSelectedIndex();
@@ -337,7 +352,12 @@ public class ReactivateItem extends JDialog {
     }
   }
 
-  // Parses a non-negative double from the given text, returning null if invalid
+  /**
+   * Parses a non-negative double from the given text.
+   *
+   * @param text input text
+   * @return parsed value, or null if invalid
+   */
   private static Double parseNonNegative(String text) {
 
     try {

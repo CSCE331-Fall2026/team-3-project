@@ -1,17 +1,21 @@
 import java.sql.*;
 
-/*
-CSCE 331
-9-25-2019 Original
-2/7/2020 Update for AWS
+/**
+ * CSCE 331 JDBC connection demo/utility.
+ *
+ * 9-25-2019 Original
+ * 2/7/2020 Update for AWS
  */
-
 public class jdbcSQL {
 
-  // Database connection object
+  /** Database connection object. */
   static Connection conn = null;
 
 
+  /**
+   * Opens the connection to the team database.
+   * @param credentials dbSetup holder for the username and password
+   */
   public static void openConnection(dbSetup credentials) {
     try {
       conn = DriverManager.getConnection(
@@ -26,6 +30,9 @@ public class jdbcSQL {
   }
 
 
+  /**
+   * Closes the database connection.
+   */
   public static void closeConnection() {
     try {
       conn.close();
@@ -36,6 +43,10 @@ public class jdbcSQL {
   }
 
 
+  /**
+   * Demo entry point: connects, lists all menu items with prices, and disconnects.
+   * @param args unused
+   */
   public static void main(String args[]) {
     // dbSetup hides the username and password
     dbSetup credentials = new dbSetup();

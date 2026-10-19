@@ -2,19 +2,27 @@
 import java.awt.*;
 import javax.swing.*;
 
+/** Line chart of hourly sales for the X Report, one point per hour of day. */
 public class XReportGraph extends JPanel {
 
     private double[] sales = new double[24];
 
+    /** Creates an empty hourly sales graph. */
     public XReportGraph() {
         setBackground(Color.WHITE);
     }
 
+    /**
+     * Replaces the hourly sales data and repaints.
+     *
+     * @param data sales totals indexed by hour of day (0-23)
+     */
     public void setData(double[] data) {
         this.sales = data.clone();
         repaint();
     }
 
+    /** Draws the grid, axes, hourly sales line, and hour labels. */
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);

@@ -9,6 +9,26 @@ Vishanth Ramamurthy Yoganand - Frontend
 
 JP Roque - Backend
 
+# Documentation
+
+Javadoc for all Java sources in `gui/` is auto-generated into the `docs/`
+folder at the top of this repository:
+
+```bash
+cd gui
+javadoc -d ../docs -classpath ".:postgresql-42.2.8.jar" *.java
+```
+
+The generated documentation is hosted via GitHub Pages at:
+https://csce331-fall2026.github.io/team-3-project/
+
+(To host: push `docs/` to `main`, then in the repo go to
+Settings → Pages → Build and deployment → Deploy from a branch →
+`main` / `/docs`.)
+
+Note: the Javadoc comments in the Java sources were written with the
+assistance of AI (GitHub Copilot) and reviewed by the team.
+
 # Database Design Justification
 ## InventoryItem
 inventoryItem allows for tracking specific shipments of each ingredient in inventory, including price, quantity, and expiration date. This allows for making sure that different wholesale orders, with different expiration dates, are handled accordingly. This information is mainly useful for managers rather than the cashier. It allows managers to track incoming inventory, monitor expiration, and compare costs over time. Keeping shipment information separate from the general Inventory table allows multiple batches of the same ingredient to be tracked separately, which is useful when items will expire at different times depending on when they came in.

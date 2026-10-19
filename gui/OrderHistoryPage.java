@@ -1,6 +1,3 @@
-/*
- * Manager order history: today's order summaries and a popup of item quantities.
- */
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -11,6 +8,9 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 
+/**
+ * Manager order history: today's order summaries and a popup of item quantities.
+ */
 public class OrderHistoryPage {
   final JPanel panel = new JPanel(new BorderLayout(0, 12));
   private final JFrame parent;
@@ -21,7 +21,11 @@ public class OrderHistoryPage {
   private final JTable table = PandaTheme.styledTable(model);
   private final JLabel status = PandaTheme.label(" ", PandaTheme.SMALL, PandaTheme.MUTED);
 
-  // Builds the read-only order list with a refresh button
+  /**
+   * Builds the read-only order list with a refresh button.
+   * @param parent parent frame used to center dialogs
+   * @param conn open JDBC connection used for history queries
+   */
   public OrderHistoryPage(JFrame parent, Connection conn) {
     this.parent = parent;
     dao = new OrderHistoryDAO(conn);
@@ -62,7 +66,12 @@ public class OrderHistoryPage {
     panel.add(status, BorderLayout.SOUTH);
   }
 
-  // Creates a typed table model whose cells cannot be edited
+  /**
+   * Creates a typed table model whose cells cannot be edited.
+   * @param columns column headers
+   * @param types column classes used by the shared table renderers
+   * @return a read-only DefaultTableModel
+   */
   private static DefaultTableModel readOnlyModel(String[] columns, final Class<?>[] types) {
     return new DefaultTableModel(columns, 0) {
       // Keeps history cells read-only
@@ -77,7 +86,9 @@ public class OrderHistoryPage {
     };
   }
 
-  // Refreshes today's orders and shows an explicit empty or error state
+  /**
+   * Refreshes today's orders and shows an explicit empty or error state.
+   */
   void reload() {
     model.setRowCount(0);
     try {
@@ -93,7 +104,10 @@ public class OrderHistoryPage {
     }
   }
 
-  // Shows a modal popup containing only item names and quantities
+  /**
+   * Shows a modal popup containing only item names and quantities.
+   * @param orderId OrderID whose items are shown
+   */
   private void showItems(int orderId) {
     try {
       List<Object[]> items = dao.fetchItems(orderId);

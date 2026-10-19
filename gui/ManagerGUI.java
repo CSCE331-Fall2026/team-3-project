@@ -8,12 +8,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/*
+/**
  * Manager window: Inventory (edit amounts, add, discontinue, and reactivate items),
  * Menu (edit prices, add, and discontinue items),
  * Order History (today's orders and item quantities),
  * Reports and Schedule placeholders.
- * LOW = Quantity <= Minimum_Threshold.
+ * LOW = Quantity &lt;= Minimum_Threshold.
  */
 public class ManagerGUI {
 
@@ -29,6 +29,11 @@ public class ManagerGUI {
   JPanel pages;
   LinkedHashMap<String, JButton> navButtons = new LinkedHashMap<String, JButton>();
 
+  /**
+   * Entry point: opens the database connection and launches the manager window.
+   *
+   * @param args unused
+   */
   public static void main(String args[]) {
     ModeSelect.openConnection(new dbSetup());
     PandaTheme.useSystemLook();
@@ -37,12 +42,21 @@ public class ManagerGUI {
     });
   }
 
+  /**
+   * Creates the manager window backed by the given connection.
+   *
+   * @param c open database connection
+   */
   public ManagerGUI(Connection c) {
     db = c;
     dao = new InventoryDAO(c);
   }
 
-  // Builds the main GUI layout for the manager interface
+  /**
+   * Builds the main GUI layout for the manager interface.
+   *
+   * @param conn open database connection (used for the Reports page)
+   */
   void build(Connection conn) {
     frame = new JFrame("Panda Express - Manager");
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -70,7 +84,11 @@ public class ManagerGUI {
     menu.reload();
   }
 
-  // nav bar: Inventory | Menu | Order History | Reports | Schedule ... Switch Mode
+  /**
+   * Nav bar: Inventory | Menu | Order History | Reports | Schedule ... Switch Mode.
+   *
+   * @return the nav bar panel
+   */
   JPanel buildNavBar() {
     JPanel nav = new JPanel(new BorderLayout());
     nav.setBackground(PandaTheme.GREY);
@@ -101,7 +119,11 @@ public class ManagerGUI {
     return nav;
   }
 
-  // Switches the currently displayed page in the main content area
+  /**
+   * Switches the currently displayed page in the main content area.
+   *
+   * @param name one of {@link #PAGES}
+   */
   void showPage(String name) {
     cards.show(pages, name);
     if (name.equals("Order History")) {
@@ -118,7 +140,7 @@ public class ManagerGUI {
     }
   }
 
-  // Returns to mode selection, warning about unsaved changes
+  /** Returns to mode selection, warning about unsaved changes. */
   void switchMode() {
     inventory.stopEditing();
     menu.stopEditing();
@@ -131,7 +153,12 @@ public class ManagerGUI {
     new ModeSelect(db).build();
   }
 
-  // Creates a placeholder panel with a title
+  /**
+   * Creates a placeholder panel with a title.
+   *
+   * @param title heading text
+   * @return the placeholder panel
+   */
   JPanel placeholder(String title) {
     JPanel p = new JPanel(new BorderLayout());
     p.setBackground(PandaTheme.WHITE);
@@ -140,7 +167,12 @@ public class ManagerGUI {
     return p;
   }
 
-  // Inventory page: Item | Amount | Unit | Status | Unsaved
+  /**
+   * Inventory page: Item | Amount | Unit | Status | Unsaved, with
+   * Discontinue / Reactivate / Add buttons.
+   *
+   * @return the inventory page panel
+   */
   JPanel buildInventoryPage() {
 
     TableEdit<InventoryDAO.Item> tableModel =
@@ -289,7 +321,11 @@ public class ManagerGUI {
     return inventory.panel;
   }
 
-  // Menu page: Menu Item | Price | Unsaved
+  /**
+   * Menu page: Menu Item | Price | Unsaved, with Discontinue / Add buttons.
+   *
+   * @return the menu page panel
+   */
   JPanel buildMenuPage() {
     TableEdit<InventoryDAO.MenuItem> tableModel = new TableEdit<InventoryDAO.MenuItem>(
         new String[] {"Menu Item", "Price", "Unsaved"}) {
@@ -335,7 +371,7 @@ public class ManagerGUI {
     return menu.panel;
   }
 
-  // Discontinue selected menu item
+  /** Discontinues the selected menu item after a confirmation prompt. */
   void removeSelectedMenuItem() {
     menu.stopEditing();
 
@@ -382,7 +418,7 @@ public class ManagerGUI {
     }
   }
 
-  // Discontinue selected inventory item
+  /** Discontinues the selected inventory item after a confirmation prompt. */
   void removeSelected() {
     inventory.stopEditing();
 
