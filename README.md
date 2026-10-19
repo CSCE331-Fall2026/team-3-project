@@ -50,12 +50,12 @@ Build and run (fill in credentials in `dbSetup.java` first; on Mac/Linux
 replace the `;` with a `:`):
 
 Compile with:
-> cd jdbc_swing_demo  
+> cd gui  
 > javac -cp ".:postgresql-42.2.8.jar" dbSetup.java CashierGUI.java  
 > cd ..  
 
 Run with:
-> cd jdbc_swing_demo  
+> cd gui  
 > java -cp ".:postgresql-42.2.8.jar" CashierGUI  
 > cd ..  
 
@@ -66,18 +66,18 @@ Click an order to open a popup showing item names and quantities. Refresh reload
 the list, and reopening the tab also loads the latest orders. Today follows the
 database date used by cashier checkout.
 
-`jdbc_swing_demo/OrderHistoryPage.java` builds the read-only history table and
-item popup using the shared GUI theme. `jdbc_swing_demo/OrderHistoryDAO.java`
+`gui/OrderHistoryPage.java` builds the read-only history table and
+item popup using the shared GUI theme. `gui/OrderHistoryDAO.java`
 queries today's orders and each order's item quantities, including discontinued
 menu items. Individual item prices are not displayed.
 
 Compile with:
-> cd jdbc_swing_demo  
+> cd gui  
 > javac -cp ".:postgresql-42.2.8.jar" dbSetup.java InventoryDAO.java ManagerGUI.java  
 > cd ..  
 
 Run with:
-> cd jdbc_swing_demo  
+> cd gui  
 > java -cp ".:postgresql-42.2.8.jar" ManagerGUI  
 > cd ..  
 
@@ -108,7 +108,7 @@ g++ -std=c++17 noise.cpp data_utils.cpp -o noise
 ./generate_base_data MenuItems.csv Inventory.csv Recipes.csv > generated_data
 ./noise MenuItems.csv Inventory.csv Recipes.csv 364 3 12345 >> generated_data
 # Load generated_data after resetting the database as usual.
-cd jdbc_swing_demo
+cd gui
 javac -cp ".:postgresql-42.2.8.jar" *.java
 java -cp ".:postgresql-42.2.8.jar" CashierGUI
 ```
