@@ -74,7 +74,7 @@ public class ReportWithFourQuads {
         new LineBorder(PandaTheme.GRID, 1),
         new EmptyBorder(12, 12, 12, 12)));
 
-    // default window: 6 days ago 00:00 through today 23:59
+    // default window 6 days ago 00:00 through today 23:59
     LocalDate today = LocalDate.now();
     JSpinner startSpinner = new JSpinner(new SpinnerDateModel(
         java.util.Date.from(today.minusDays(6).atStartOfDay(ZoneId.systemDefault()).toInstant()),
@@ -112,7 +112,7 @@ public class ReportWithFourQuads {
     q.add(PandaTheme.scroll(new JTable(tableModel)), BorderLayout.CENTER);
 
     Runnable refresh = () -> {
-        // whole minutes; the end minute is included (e.g. 14:00 counts orders up to 14:00:59)
+        // whole minutes
         LocalDateTime start = ((java.util.Date) startSpinner.getValue()).toInstant()
             .atZone(ZoneId.systemDefault()).toLocalDateTime()
             .truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
@@ -167,7 +167,8 @@ public class ReportWithFourQuads {
   }
 
  /**
-  * Fills the quadrant for the usage report.
+  * Fills the quadrant for the usage report for a date and time window
+  * (within one day or across several days).
   *
   * @param title quadrant title
   * @return the quadrant panel
@@ -179,15 +180,16 @@ private JPanel makeUsageReport(String title) {
         new LineBorder(PandaTheme.GRID, 1),
         new EmptyBorder(12, 12, 12, 12)));
 
+    // default window 6 days ago 00:00 through today 23:59
     LocalDate today = LocalDate.now();
     JSpinner startSpinner = new JSpinner(new SpinnerDateModel(
         java.util.Date.from(today.minusDays(6).atStartOfDay(ZoneId.systemDefault()).toInstant()),
-        null, null, java.util.Calendar.DAY_OF_MONTH));
+        null, null, java.util.Calendar.MINUTE));
     JSpinner endSpinner = new JSpinner(new SpinnerDateModel(
-        java.util.Date.from(today.atStartOfDay(ZoneId.systemDefault()).toInstant()),
-        null, null, java.util.Calendar.DAY_OF_MONTH));
-    startSpinner.setEditor(new JSpinner.DateEditor(startSpinner, "yyyy-MM-dd"));
-    endSpinner.setEditor(new JSpinner.DateEditor(endSpinner, "yyyy-MM-dd"));
+        java.util.Date.from(today.atTime(23, 59).atZone(ZoneId.systemDefault()).toInstant()),
+        null, null, java.util.Calendar.MINUTE));
+    startSpinner.setEditor(new JSpinner.DateEditor(startSpinner, "yyyy-MM-dd HH:mm"));
+    endSpinner.setEditor(new JSpinner.DateEditor(endSpinner, "yyyy-MM-dd HH:mm"));
 
     JButton runButton = new JButton("Run");
     JLabel status = PandaTheme.label(" ", PandaTheme.BOLD, PandaTheme.MUTED);
@@ -216,11 +218,14 @@ private JPanel makeUsageReport(String title) {
     q.add(PandaTheme.scroll(new JTable(tableModel)), BorderLayout.CENTER);
 
     Runnable refresh = () -> {
-        LocalDate startDate = ((java.util.Date) startSpinner.getValue())
-            .toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-        LocalDate endDate = ((java.util.Date) endSpinner.getValue())
-            .toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-        if (startDate.isAfter(endDate)) {
+        // whole minutes
+        LocalDateTime start = ((java.util.Date) startSpinner.getValue()).toInstant()
+            .atZone(ZoneId.systemDefault()).toLocalDateTime()
+            .truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
+        LocalDateTime end = ((java.util.Date) endSpinner.getValue()).toInstant()
+            .atZone(ZoneId.systemDefault()).toLocalDateTime()
+            .truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
+        if (start.isAfter(end)) {
             status.setText("Start must be on or before end");
             return;
         }
@@ -239,11 +244,12 @@ private JPanel makeUsageReport(String title) {
             "JOIN OrderItem oi          ON oi.OrderID     = o.OrderID " +
             "JOIN MenuItemInventory mii ON mii.MenuItemID = oi.MenuItemID " +
             "JOIN Inventory i           ON i.InventoryID  = mii.InventoryID " +
-            "WHERE o.OrderDate BETWEEN ? AND ? " +
+            "WHERE (o.OrderDate + o.OrderTime) >= ? " +
+            "  AND (o.OrderDate + o.OrderTime) <  ? " +
             "GROUP BY i.InventoryID, i.ItemName, i.Unit " +
             "ORDER BY AmountUsed DESC")) {
-            ps.setDate(1, java.sql.Date.valueOf(startDate));
-            ps.setDate(2, java.sql.Date.valueOf(endDate));
+            ps.setTimestamp(1, java.sql.Timestamp.valueOf(start));
+            ps.setTimestamp(2, java.sql.Timestamp.valueOf(end.plusMinutes(1)));
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     tableModel.addRow(new Object[] {
