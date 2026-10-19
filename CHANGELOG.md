@@ -1,5 +1,21 @@
 # Changelog
 
+## Phase 4: Reports
+
+### Summary
+We made adjustments to the database to support ordering bowls, plates, and bigger plates. 
+
+### Added
+- **`OrderItemSelection`**: Added to store which sides and entrees where chosen for a meal. OrderItem will record that someone bought a plate while OrderItemSelection will record it was orange chicken and fried rice. 
+
+### Changed
+- **`Menu`**: Updated menu items to include bowl, plate, and larger plate.
+
+### Removed
+- **`Entree`**: Removed entree tab on CashierGUI as they are now ordered in a group with sides, they cannot be ordered individually
+- **`Side`**: Removed side tab on CashierGUI as they are now ordered in a group with entrees, they cannot be ordered individually.
+
+
 ## Phase 3: GUI Implementation
 
 ### Summary
